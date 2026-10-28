@@ -1,15 +1,19 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show FontFeature;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app/assets/app_assets.dart';
 import 'app/config/app_config.dart';
 import 'app/providers/app_services.dart';
 import 'app/theme/app_colors.dart';
 import 'app/widgets/app_icon.dart';
+import 'app/widgets/game_artwork.dart';
 import 'core/models/user_account.dart';
 import 'features/auth/domain/auth_service.dart';
 import 'game_state.dart';
@@ -124,13 +128,60 @@ class GameHome extends StatefulWidget {
 class _GameHomeState extends State<GameHome> {
   int selectedTab = 0;
   final pages = const ['World', 'Auction House', 'My Assets', 'Bank & Rewards', 'Profile'];
+  StreamSubscription<RemoteMessage>? _messageSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageSubscription =
+        widget.services?.notifications.foregroundMessages.listen(
+      _showOutbidMessage,
+      onError: (Object error, StackTrace stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'Firebase Messaging',
+            context: const ErrorDescription(
+              'while listening for foreground auction notifications',
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showOutbidMessage(RemoteMessage message) {
+    if (message.data['type'] != 'outbid') return;
+    final title = message.notification?.title ?? 'You have been outbid';
+    final body = message.notification?.body ??
+        message.data['body']?.toString() ??
+        'Another player placed a higher bid.';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('$title: $body'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_messageSubscription?.cancel());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
     final screens = [
       MapScreen(game: game),
-      AuctionScreen(game: game),
+      AuctionScreen(game: game, isActive: selectedTab == 1),
       InventoryScreen(game: game),
       RewardsScreen(game: game, rewardedAds: widget.rewardedAds),
       ProfileScreen(game: game, authService: widget.services?.auth),
@@ -303,9 +354,47 @@ class MapScreen extends StatelessWidget {
                     Positioned(left: 30, top: 42, child: _mapDistrict('SUBURBS', Icons.park_rounded, const Color(0xFF28423C))),
                     Positioned(left: 265, top: 28, child: _mapDistrict('DOWNTOWN', Icons.location_city_rounded, const Color(0xFF31394B))),
                     Positioned(left: 340, top: 242, child: _mapDistrict('MARINA', Icons.sailing_rounded, const Color(0xFF263D50))),
-                    Positioned(left: 78, top: 200, child: _mapProperty('Studio apartment', true)),
-                    Positioned(left: 270, top: 166, child: _mapProperty('Available property', false)),
-                    Positioned(left: 430, top: 70, child: _mapProperty('Auction district', false)),
+                    Positioned(
+                      left: 78,
+                      top: 200,
+                      child: _mapProperty(
+                        game.properties.isEmpty
+                            ? 'Available shed'
+                            : game.properties.first.name,
+                        game.properties.isNotEmpty,
+                        PropertyArtStyle.shed,
+                        onTap: game.properties.isEmpty
+                            ? null
+                            : () => showPropertySlots(context, game),
+                      ),
+                    ),
+                    Positioned(
+                      left: 270,
+                      top: 166,
+                      child: _mapProperty(
+                        'Available apartment',
+                        false,
+                        PropertyArtStyle.apartment,
+                      ),
+                    ),
+                    Positioned(
+                      left: 430,
+                      top: 70,
+                      child: _mapProperty(
+                        'Villa district',
+                        false,
+                        PropertyArtStyle.villa,
+                      ),
+                    ),
+                    Positioned(
+                      left: 462,
+                      top: 235,
+                      child: _mapProperty(
+                        'Marina',
+                        false,
+                        PropertyArtStyle.marina,
+                      ),
+                    ),
                     Positioned(left: 100, top: 154, child: Transform.rotate(angle: -.45, child: Container(width: 210, height: 15, color: const Color(0xFF4A4D47)))),
                     Positioned(left: 322, top: 65, child: Transform.rotate(angle: 1.1, child: Container(width: 255, height: 13, color: const Color(0xFF4A4D47)))),
                   ]),
@@ -314,15 +403,19 @@ class MapScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          glassCard(
+          if (game.properties.isNotEmpty)
+            glassCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(width: 46, height: 46, decoration: BoxDecoration(color: _gold.withValues(alpha: .13), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.apartment_rounded, color: _gold)),
                 const SizedBox(width: 12),
-                const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Small Studio Apartment', style: TextStyle(fontWeight: FontWeight.w700)),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(game.properties.first.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                   SizedBox(height: 4),
-                  Text('Your first property · 2 item slots', style: TextStyle(color: _muted, fontSize: 12)),
+                  Text(
+                    'Your starter property · ${game.properties.first.furnitureSlots} furniture · ${game.properties.first.vehicleSlots} vehicle slots',
+                    style: const TextStyle(color: _muted, fontSize: 12),
+                  ),
                 ])),
                 const Icon(Icons.verified_rounded, color: _green, size: 20),
               ]),
@@ -336,9 +429,30 @@ class MapScreen extends StatelessWidget {
                 primaryButton(label: 'Collect rent', icon: Icons.attach_money_rounded, onPressed: game.collectRent),
               ]),
               const SizedBox(height: 12),
-              Text('${game.placedCount}/2 furnishing slots used', style: const TextStyle(color: _muted, fontSize: 12)),
+              Text(
+                '${game.placedFurnitureCount}/${game.properties.first.furnitureSlots} furniture · ${game.placedVehicleCount}/${game.properties.first.vehicleSlots} vehicle slots used',
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
               const SizedBox(height: 7),
-              LinearProgressIndicator(value: game.placedCount / 2, minHeight: 5, borderRadius: BorderRadius.circular(9), color: _gold, backgroundColor: const Color(0xFF2A3040)),
+              LinearProgressIndicator(
+                value: (game.placedFurnitureCount +
+                        game.placedVehicleCount) /
+                    (game.properties.first.furnitureSlots +
+                        game.properties.first.vehicleSlots),
+                minHeight: 5,
+                borderRadius: BorderRadius.circular(9),
+                color: _gold,
+                backgroundColor: const Color(0xFF2A3040),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => showPropertySlots(context, game),
+                  icon: const Icon(Icons.grid_view_rounded, size: 17),
+                  label: const Text('Open property slots'),
+                ),
+              ),
             ]),
           ),
           const SizedBox(height: 12),
@@ -353,25 +467,225 @@ Widget _mapDistrict(String name, IconData icon, Color color) => Container(
       child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white70, size: 17), const SizedBox(width: 6), Text(name, style: const TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w700))]),
     );
 
-Widget _mapProperty(String label, bool owned) => Column(children: [
-      Container(
-        width: 54,
-        height: 46,
-        decoration: BoxDecoration(
-          color: owned ? const Color(0xFF5C4A26) : const Color(0xFF363B48),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: owned ? _gold : Colors.white24, width: 1.5),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 12, offset: const Offset(0, 5))],
+Widget _mapProperty(
+  String label,
+  bool owned,
+  PropertyArtStyle style, {
+  VoidCallback? onTap,
+}) =>
+    InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Semantics(
+        label: '$label${owned ? ', owned property' : ''}',
+        button: onTap != null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IsometricPropertyArt(style: style, size: 78),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              style: TextStyle(
+                color: owned ? _gold : Colors.white70,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        child: Icon(owned ? Icons.home_rounded : Icons.add_location_alt_rounded, color: owned ? _gold : Colors.white60, size: 25),
       ),
-      const SizedBox(height: 4),
-      Text(label, style: TextStyle(color: owned ? _gold : Colors.white70, fontSize: 9, fontWeight: FontWeight.w600)),
-    ]);
+    );
+
+Future<void> showPropertySlots(BuildContext context, GameState game) async {
+  if (game.properties.isEmpty) return;
+  final property = game.properties.first;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: _surface,
+    builder: (context) => SafeArea(
+      child: AnimatedBuilder(
+        animation: game,
+        builder: (context, _) => Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(property.name,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text('Tap an empty slot to place an item from your warehouse.',
+                  style: TextStyle(color: _muted, fontSize: 12)),
+              const SizedBox(height: 14),
+              _propertySlotSection(
+                context,
+                game,
+                'Furniture',
+                property.furnitureSlots,
+                (item) => item.category != 'Vehicles' &&
+                    item.category != 'Boats',
+                Icons.chair_rounded,
+              ),
+              const SizedBox(height: 12),
+              _propertySlotSection(
+                context,
+                game,
+                'Vehicles',
+                property.vehicleSlots,
+                (item) =>
+                    item.category == 'Vehicles' || item.category == 'Boats',
+                Icons.directions_car_rounded,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _propertySlotSection(
+  BuildContext context,
+  GameState game,
+  String category,
+  int capacity,
+  bool Function(GameItem) accepts,
+  IconData icon,
+) {
+  final placed = game.inventory.where((item) => item.placed && accepts(item));
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(category.toUpperCase(),
+          style: const TextStyle(
+              color: _cyan, fontSize: 10, letterSpacing: 1.1)),
+      const SizedBox(height: 6),
+      for (var index = 0; index < capacity; index++)
+        Builder(builder: (context) {
+          final item = index < placed.length ? placed.elementAt(index) : null;
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(scale: animation, child: child),
+            ),
+            child: Card(
+              key: item == null
+                  ? ValueKey('empty-$category-$index')
+                  : ObjectKey(item),
+              color: const Color(0xFF202633),
+              child: ListTile(
+                leading: item == null
+                    ? Icon(icon, color: _muted)
+                    : GameItemArtwork(
+                        icon: item.icon,
+                        category: item.category,
+                        size: 42,
+                        semanticLabel: item.name,
+                      ),
+                title: Text(item?.name ?? 'Empty $category slot'),
+                subtitle: Text(item == null
+                    ? 'Assign from your warehouse'
+                    : '${item.rarity} · ${item.category}'),
+                trailing: Icon(
+                  item == null
+                      ? Icons.add_circle_outline
+                      : Icons.tune_rounded,
+                  color: item == null ? _green : _muted,
+                ),
+                onTap: () async {
+                  if (item == null) {
+                    final available = game.inventory
+                        .where((candidate) =>
+                            !candidate.placed && accepts(candidate))
+                        .toList();
+                    if (available.isEmpty) {
+                      _showMessage(
+                        context,
+                        'No matching items in your warehouse.',
+                      );
+                      return;
+                    }
+                    final selected = await showDialog<GameItem>(
+                      context: context,
+                      builder: (context) => SimpleDialog(
+                        title: Text('Choose $category item'),
+                        children: available
+                            .map((candidate) => SimpleDialogOption(
+                                  onPressed: () =>
+                                      Navigator.pop(context, candidate),
+                                  child: Text(candidate.name),
+                                ))
+                            .toList(),
+                      ),
+                    );
+                    if (selected != null && context.mounted) {
+                      _showMessage(
+                        context,
+                        game.placeItem(selected)
+                            ? 'Item assigned to your property.'
+                            : 'No matching property slot is available.',
+                      );
+                    }
+                    return;
+                  }
+
+                  if (!context.mounted) return;
+                  final remove = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(item.name),
+                      content: Text(
+                        '${item.rarity} ${item.category.toLowerCase()} currently placed in your property.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Keep placed'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Return to warehouse'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (remove == true && context.mounted) {
+                    game.removeItemFromProperty(item);
+                  }
+                },
+              ),
+            ),
+          );
+        }),
+    ],
+  );
+}
 
 class AuctionScreen extends StatefulWidget {
-  const AuctionScreen({required this.game, super.key});
+  const AuctionScreen({
+    required this.game,
+    required this.isActive,
+    super.key,
+  });
   final GameState game;
+  final bool isActive;
 
   @override
   State<AuctionScreen> createState() => _AuctionScreenState();
@@ -380,12 +694,56 @@ class AuctionScreen extends StatefulWidget {
 class _AuctionScreenState extends State<AuctionScreen> {
   AuctionMode? filter;
   Timer? refreshTimer;
+  final Set<GameAuction> celebratedWinners = {};
+  final List<GameAuction> pendingCelebrations = [];
+  bool showingCelebration = false;
 
   @override
   void initState() {
     super.initState();
     refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        final changed = widget.game.resolveExpiredAuctions();
+        if (changed) {
+          for (final auction in widget.game.auctions) {
+            if (auction.resolved &&
+                auction.playerWon == true &&
+                celebratedWinners.add(auction)) {
+              pendingCelebrations.add(auction);
+            }
+          }
+          _showNextCelebration();
+        }
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AuctionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) _showNextCelebration();
+  }
+
+  void _showNextCelebration() {
+    if (!widget.isActive ||
+        showingCelebration ||
+        pendingCelebrations.isEmpty ||
+        !mounted) {
+      return;
+    }
+    showingCelebration = true;
+    final auction = pendingCelebrations.removeAt(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showAuctionWinCelebration(
+        context,
+        itemName: auction.itemName,
+        price: auction.clearingPrice ?? auction.startingPrice,
+      );
+      if (!mounted) return;
+      showingCelebration = false;
+      _showNextCelebration();
     });
   }
 
@@ -397,7 +755,11 @@ class _AuctionScreenState extends State<AuctionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auctions = widget.game.auctions.where((a) => !a.isExpired && (filter == null || a.mode == filter)).toList();
+    final auctions = widget.game.auctions
+        .where((auction) =>
+            (auction.resolved || !auction.isExpired) &&
+            (filter == null || auction.mode == filter))
+        .toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
@@ -426,7 +788,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
                 child: AuctionCard(auction: auction, game: widget.game),
               )),
         const SizedBox(height: 7),
-        sectionTitle('List an item'),
+        sectionTitle('List an item or property'),
         glassCard(
           child: Row(children: [
             const Icon(Icons.sell_rounded, color: _gold, size: 30),
@@ -434,7 +796,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
             const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Turn your assets into cash', style: TextStyle(fontWeight: FontWeight.w700)),
               SizedBox(height: 4),
-              Text('Choose an item and auction format.', style: TextStyle(color: _muted, fontSize: 12)),
+              Text('Choose an item or property and auction format.', style: TextStyle(color: _muted, fontSize: 12)),
             ])),
             IconButton(onPressed: () => showCreateListing(context, widget.game), icon: const Icon(Icons.add_circle_rounded, color: _green, size: 30)),
           ]),
@@ -467,7 +829,11 @@ class AuctionCard extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(width: 52, height: 52, decoration: BoxDecoration(color: _gold.withValues(alpha: .1), borderRadius: BorderRadius.circular(14)), child: Icon(auction.icon, color: _gold, size: 28)),
+          GameItemArtwork(
+            icon: auction.icon,
+            size: 52,
+            semanticLabel: auction.itemName,
+          ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(auction.itemName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
@@ -479,14 +845,58 @@ class AuctionCard extends StatelessWidget {
         const SizedBox(height: 14),
         Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(auction.mode == AuctionMode.dutch ? 'CURRENT PRICE' : 'CURRENT BID', style: const TextStyle(color: _muted, fontSize: 9, letterSpacing: 1)),
+            Text(
+              auction.mode == AuctionMode.dutch
+                  ? 'CURRENT PRICE'
+                  : auction.mode == AuctionMode.sealedBid ||
+                          auction.mode == AuctionMode.vickrey
+                      ? 'STARTING PRICE'
+                      : 'CURRENT BID',
+              style: const TextStyle(
+                  color: _muted, fontSize: 9, letterSpacing: 1),
+            ),
             const SizedBox(height: 3),
-            Text(money(price), style: const TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.w800, fontFeatures: [FontFeature.tabularFigures()])),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, -.3),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: Text(
+                money(price),
+                key: ValueKey(price),
+                style: const TextStyle(
+                  color: _gold,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
           ])),
-          if (auction.mode != AuctionMode.dutch)
+          if (auction.mode != AuctionMode.dutch &&
+              auction.mode != AuctionMode.sealedBid &&
+              auction.mode != AuctionMode.vickrey)
             Text('${auction.bids} bids', style: const TextStyle(color: _muted, fontSize: 11)),
           const SizedBox(width: 10),
-          if (auction.myBid != null)
+          if (auction.resolved)
+            const Chip(
+                label: Text('ENDED'),
+                visualDensity: VisualDensity.compact,
+                labelStyle: TextStyle(color: _muted, fontSize: 9))
+          else if (auction.isPlayerListing)
+            const Chip(
+                label: Text('YOUR LISTING'),
+                visualDensity: VisualDensity.compact,
+                labelStyle: TextStyle(color: _cyan, fontSize: 9))
+          else if (auction.myBid != null &&
+              auction.mode != AuctionMode.english)
             const Chip(label: Text('BID PLACED'), visualDensity: VisualDensity.compact, labelStyle: TextStyle(color: _cyan, fontSize: 9))
           else
             primaryButton(
@@ -494,19 +904,226 @@ class AuctionCard extends StatelessWidget {
               icon: auction.mode == AuctionMode.dutch ? Icons.bolt_rounded : Icons.gavel_rounded,
               onPressed: auction.mode == AuctionMode.dutch
                   ? () {
+                      final price = auction.currentPrice;
                       final won = game.claimDutchAuction(auction);
-                      _showMessage(context, won ? 'Item added to your assets.' : 'Not enough cash to claim this item.');
+                      if (won) {
+                        unawaited(showAuctionWinCelebration(
+                          context,
+                          itemName: auction.itemName,
+                          price: price,
+                        ));
+                      } else {
+                        _showMessage(
+                          context,
+                          'Not enough cash to claim this item.',
+                        );
+                      }
                     }
                   : () => showBidDialog(context, game, auction),
             ),
         ]),
         if (auction.mode == AuctionMode.sealedBid || auction.mode == AuctionMode.vickrey) ...[
           const SizedBox(height: 8),
-          const Text('Other bids are hidden until the auction ends.', style: TextStyle(color: _muted, fontSize: 10)),
+          if (!auction.resolved)
+            Text(
+              auction.myBid == null
+                  ? 'Bids stay sealed until the timer expires.'
+                  : 'Your sealed bid is ${money(auction.myBid!)}. All bids reveal when the timer expires.',
+              style: const TextStyle(color: _muted, fontSize: 10),
+            )
+          else ...[
+            Text(
+              'Revealed bids: ${(auction.revealedBids ?? const <int>[]).map(money).join(' · ')}',
+              style: const TextStyle(color: _muted, fontSize: 10),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              auction.playerWon == true
+                  ? 'You won for ${money(auction.clearingPrice ?? auction.startingPrice)}.'
+                  : auction.winningBid == null
+                      ? 'No bids were placed.'
+                      : 'Auction ended · winning bid ${money(auction.winningBid!)}.',
+              style: TextStyle(
+                  color: auction.playerWon == true ? _green : _gold,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700),
+            ),
+          ],
+        ] else if (auction.resolved) ...[
+          const SizedBox(height: 8),
+          Text(
+            auction.playerWon == true
+                ? 'You won for ${money(auction.clearingPrice ?? auction.startingPrice)}.'
+                : auction.isPlayerListing
+                    ? 'Listing ended. The item or property was returned to your assets.'
+                    : 'Auction ended.',
+            style: const TextStyle(color: _muted, fontSize: 10),
+          ),
         ],
       ]),
     );
   }
+}
+
+Future<void> showAuctionWinCelebration(
+  BuildContext context, {
+  required String itemName,
+  required int price,
+}) async {
+  unawaited(HapticFeedback.heavyImpact());
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) => _AuctionWinDialog(
+      itemName: itemName,
+      price: price,
+    ),
+  );
+}
+
+class _AuctionWinDialog extends StatefulWidget {
+  const _AuctionWinDialog({required this.itemName, required this.price});
+
+  final String itemName;
+  final int price;
+
+  @override
+  State<_AuctionWinDialog> createState() => _AuctionWinDialogState();
+}
+
+class _AuctionWinDialogState extends State<_AuctionWinDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController controller = AnimationController(
+    duration: const Duration(milliseconds: 1350),
+    vsync: this,
+  )..forward();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+        backgroundColor: _surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: _gold.withValues(alpha: .35)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 126,
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: AnimatedBuilder(
+                        animation: controller,
+                        builder: (context, _) => CustomPaint(
+                          painter: _ConfettiPainter(controller.value),
+                        ),
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: controller,
+                      builder: (context, child) => Transform.rotate(
+                        angle: Tween<double>(begin: -.85, end: .04)
+                            .chain(CurveTween(curve: Curves.bounceOut))
+                            .transform(controller.value),
+                        alignment: Alignment.bottomRight,
+                        child: child,
+                      ),
+                      child: const Icon(
+                        Icons.gavel_rounded,
+                        color: _gold,
+                        size: 78,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Text(
+                'YOU WON!',
+                style: TextStyle(
+                  color: _gold,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.itemName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Winning price · ${money(widget.price)}',
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: primaryButton(
+                  label: 'Continue',
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _ConfettiPainter extends CustomPainter {
+  const _ConfettiPainter(this.progress);
+
+  final double progress;
+
+  static const colors = [
+    AppColors.primaryGold,
+    AppColors.accentGreen,
+    AppColors.diamondCyan,
+    Color(0xFFFF7184),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var index = 0; index < 28; index++) {
+      final startX =
+          (((index * .6180339887) % 1).toDouble()) * size.width;
+      final travel = progress * size.height * (1.1 + (index % 5) * .15);
+      final x = startX + math.sin(progress * 5 + index) * 9;
+      final y = travel - size.height * .25;
+      final opacity = (1 - progress * .85).clamp(0.0, 1.0).toDouble();
+      final paint = Paint()..color = colors[index % colors.length].withValues(alpha: opacity);
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(progress * 8 + index * .7);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset.zero, width: 5, height: 9),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter oldDelegate) =>
+      progress != oldDelegate.progress;
 }
 
 Widget _countdown(DateTime end) {
@@ -523,20 +1140,35 @@ Widget _countdown(DateTime end) {
 }
 
 Future<void> showBidDialog(BuildContext context, GameState game, GameAuction auction) async {
-  final minimum = auction.mode == AuctionMode.english ? ((auction.currentBid ?? auction.startingPrice) * 1.05).ceil() : auction.startingPrice;
+  final minimum = auction.mode == AuctionMode.english &&
+          auction.currentBid != null
+      ? (auction.currentBid! * 1.05).ceil()
+      : auction.startingPrice;
   final amount = await showDialog<int>(
     context: context,
-    builder: (_) => BidDialog(minimum: minimum, balance: game.cash),
+    builder: (_) => BidDialog(
+      minimum: minimum,
+      balance: game.availableCash,
+      sealed: auction.mode == AuctionMode.sealedBid ||
+          auction.mode == AuctionMode.vickrey,
+    ),
   );
   if (amount == null || !context.mounted) return;
   final placed = game.placeBid(auction, amount);
+  if (placed) unawaited(HapticFeedback.mediumImpact());
   _showMessage(context, placed ? 'Your bid was placed.' : 'Bid was rejected. Check your balance and minimum bid.');
 }
 
 class BidDialog extends StatefulWidget {
-  const BidDialog({required this.minimum, required this.balance, super.key});
+  const BidDialog({
+    required this.minimum,
+    required this.balance,
+    this.sealed = false,
+    super.key,
+  });
   final int minimum;
   final int balance;
+  final bool sealed;
 
   @override
   State<BidDialog> createState() => _BidDialogState();
@@ -553,9 +1185,16 @@ class _BidDialogState extends State<BidDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Place your bid'),
+        title: Text(widget.sealed ? 'Submit sealed bid' : 'Place your bid'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Minimum ${money(widget.minimum)} · balance ${money(widget.balance)}', style: const TextStyle(color: _muted, fontSize: 12)),
+          if (widget.sealed) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Your amount remains hidden from the marketplace until the auction ends.',
+              style: TextStyle(color: _cyan, fontSize: 11),
+            ),
+          ],
           const SizedBox(height: 14),
           TextField(
             controller: input,
@@ -566,7 +1205,9 @@ class _BidDialogState extends State<BidDialog> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, int.tryParse(input.text)), child: const Text('Confirm bid')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, int.tryParse(input.text)),
+              child: Text(widget.sealed ? 'Seal bid' : 'Confirm bid')),
         ],
       );
 }
@@ -594,7 +1235,11 @@ class InventoryScreen extends StatelessWidget {
                   child: glassCard(
                     padding: const EdgeInsets.all(13),
                     child: Row(children: [
-                      Container(width: 52, height: 52, decoration: BoxDecoration(color: _gold.withValues(alpha: .1), borderRadius: BorderRadius.circular(14)), child: Icon(item.icon, color: _gold, size: 28)),
+                      GameItemArtwork(
+                        icon: item.icon,
+                        category: item.category,
+                        semanticLabel: item.name,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
@@ -614,6 +1259,7 @@ class InventoryScreen extends StatelessWidget {
                             _showMessage(context, 'Removed from your studio.');
                           } else if (action == 'sell') {
                             final sold = game.quickSell(item);
+                            if (sold) unawaited(HapticFeedback.mediumImpact());
                             _showMessage(context, sold ? 'Sold for ${money((item.value * .65).round())}.' : 'Remove this item from your studio before selling.');
                           } else if (action == 'auction') {
                             showCreateListing(context, game, item: item);
@@ -644,45 +1290,80 @@ class InventoryScreen extends StatelessWidget {
 
 Future<void> showCreateListing(BuildContext context, GameState game, {GameItem? item}) async {
   final available = item == null ? game.inventory.where((asset) => !asset.placed).toList() : [item];
-  if (available.isEmpty) {
-    _showMessage(context, 'No available items to list.');
+  final properties = item == null && game.placedCount == 0
+      ? game.properties
+      : const <GameProperty>[];
+  if (available.isEmpty && properties.isEmpty) {
+    _showMessage(
+      context,
+      game.placedCount > 0 && game.properties.isNotEmpty
+          ? 'Remove displayed items before listing your property.'
+          : 'No available items or properties to list.',
+    );
     return;
   }
   final selection = await showDialog<_ListingSelection>(
     context: context,
-    builder: (_) => CreateListingDialog(items: available),
+    builder: (_) =>
+        CreateListingDialog(items: available, properties: properties),
   );
   if (selection == null || !context.mounted) return;
-  final success = game.createListing(
-    selection.item,
-    selection.mode,
-    selection.price,
-    duration: selection.duration,
-  );
+  final success = selection.item != null
+      ? game.createListing(
+          selection.item!,
+          selection.mode,
+          selection.price,
+          duration: selection.duration,
+        )
+      : selection.property != null &&
+          game.createPropertyListing(
+            selection.property!,
+            selection.mode,
+            selection.price,
+            duration: selection.duration,
+          );
   _showMessage(context, success ? 'Your ${selection.mode.label} auction is live.' : 'Could not create listing.');
 }
 
 class _ListingSelection {
-  const _ListingSelection(this.item, this.mode, this.price, this.duration);
-  final GameItem item;
+  const _ListingSelection({
+    this.item,
+    this.property,
+    required this.mode,
+    required this.price,
+    required this.duration,
+  });
+  final GameItem? item;
+  final GameProperty? property;
   final AuctionMode mode;
   final int price;
   final Duration duration;
 }
 
 class CreateListingDialog extends StatefulWidget {
-  const CreateListingDialog({required this.items, super.key});
+  const CreateListingDialog({
+    required this.items,
+    required this.properties,
+    super.key,
+  });
   final List<GameItem> items;
+  final List<GameProperty> properties;
 
   @override
   State<CreateListingDialog> createState() => _CreateListingDialogState();
 }
 
 class _CreateListingDialogState extends State<CreateListingDialog> {
-  late GameItem item = widget.items.first;
+  late bool listingProperty =
+      widget.items.isEmpty && widget.properties.isNotEmpty;
+  late GameItem? item = widget.items.isEmpty ? null : widget.items.first;
+  late GameProperty? property =
+      widget.properties.isEmpty ? null : widget.properties.first;
   AuctionMode mode = AuctionMode.english;
   String durationLabel = '1 hour';
-  late final TextEditingController price = TextEditingController(text: '${item.value}');
+  late final TextEditingController price = TextEditingController(
+    text: '${item?.value ?? property?.value ?? ''}',
+  );
   static const durations = {
     '1 hour': Duration(hours: 1),
     '6 hours': Duration(hours: 6),
@@ -699,15 +1380,52 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
   Widget build(BuildContext context) => AlertDialog(
         title: const Text('Create auction'),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<GameItem>(
-            value: item,
-            decoration: const InputDecoration(labelText: 'Item'),
-            items: widget.items.map((asset) => DropdownMenuItem(value: asset, child: Text(asset.name, overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: (value) => setState(() {
-              item = value!;
-              price.text = '${item.value}';
-            }),
-          ),
+          if (widget.items.isNotEmpty && widget.properties.isNotEmpty)
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Item')),
+                ButtonSegment(value: true, label: Text('Property')),
+              ],
+              selected: {listingProperty},
+              onSelectionChanged: (selection) => setState(() {
+                listingProperty = selection.first;
+                price.text = listingProperty
+                    ? '${property?.value ?? ''}'
+                    : '${item?.value ?? ''}';
+              }),
+            ),
+          if (listingProperty)
+            DropdownButtonFormField<GameProperty>(
+              value: property,
+              decoration: const InputDecoration(labelText: 'Property'),
+              items: widget.properties
+                  .map((ownedProperty) => DropdownMenuItem(
+                        value: ownedProperty,
+                        child: Text(ownedProperty.name,
+                            overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: (value) => setState(() {
+                property = value;
+                price.text = '${value?.value ?? ''}';
+              }),
+            )
+          else
+            DropdownButtonFormField<GameItem>(
+              value: item,
+              decoration: const InputDecoration(labelText: 'Item'),
+              items: widget.items
+                  .map((asset) => DropdownMenuItem(
+                        value: asset,
+                        child: Text(asset.name,
+                            overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: (value) => setState(() {
+                item = value;
+                price.text = '${value?.value ?? ''}';
+              }),
+            ),
           const SizedBox(height: 12),
           DropdownButtonFormField<AuctionMode>(
             value: mode,
@@ -730,10 +1448,23 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
           FilledButton(
             onPressed: () {
               final parsed = int.tryParse(price.text);
-              if (parsed == null || parsed <= 0) return;
-              Navigator.pop(context, _ListingSelection(item, mode, parsed, durations[durationLabel]!));
+              if (parsed == null ||
+                  parsed <= 0 ||
+                  (listingProperty ? property == null : item == null)) {
+                return;
+              }
+              Navigator.pop(
+                context,
+                _ListingSelection(
+                  item: listingProperty ? null : item,
+                  property: listingProperty ? property : null,
+                  mode: mode,
+                  price: parsed,
+                  duration: durations[durationLabel]!,
+                ),
+              );
             },
-            child: const Text('List item'),
+            child: Text(listingProperty ? 'List property' : 'List item'),
           ),
         ],
       );
@@ -756,7 +1487,11 @@ class RewardsScreen extends StatelessWidget {
             ]),
           ),
           const SizedBox(height: 18),
-          sectionTitle('Earn rewards', trailing: '${5 - game.dailyRewardClaims} claims left today'),
+          sectionTitle(
+            'Earn rewards',
+            trailing:
+                '${game.dailyRewardLimit - game.dailyRewardClaims} claims left this session',
+          ),
           Text(
             rewardedAds == null
                 ? 'Choose a reward to simulate a completed rewarded video.'
@@ -767,20 +1502,22 @@ class RewardsScreen extends StatelessWidget {
           _rewardTile(
             icon: Icons.account_balance_rounded,
             title: 'Cash boost',
-            subtitle: '+\$2,500 cash · up to 5 daily',
+            subtitle: '+\$2,500 cash · up to ${game.dailyRewardLimit} per session',
             color: _gold,
-            claimed: game.dailyRewardClaims >= 5,
-            enabled: game.dailyRewardClaims < 5,
+            claimed: false,
+            enabled: game.dailyRewardClaims < game.dailyRewardLimit,
+            disabledLabel: 'Limit',
             onTap: () => _reward(context, game, rewardedAds, 'cash', 2500, 0),
           ),
           const SizedBox(height: 10),
           _rewardTile(
             icon: Icons.diamond_rounded,
             title: 'Diamond drop',
-            subtitle: '+5 diamonds · up to 5 daily',
+            subtitle: '+5 diamonds · up to ${game.dailyRewardLimit} per session',
             color: _cyan,
-            claimed: game.dailyRewardClaims >= 5,
-            enabled: game.dailyRewardClaims < 5,
+            claimed: false,
+            enabled: game.dailyRewardClaims < game.dailyRewardLimit,
+            disabledLabel: 'Limit',
             onTap: () => _reward(context, game, rewardedAds, 'diamonds', 0, 5),
           ),
           const SizedBox(height: 10),
@@ -790,7 +1527,9 @@ class RewardsScreen extends StatelessWidget {
             subtitle: '+\$420 from your studio',
             color: _green,
             claimed: game.claimedRewards.contains('rent'),
-            enabled: !game.claimedRewards.contains('rent'),
+            enabled: !game.claimedRewards.contains('rent') &&
+                game.properties.isNotEmpty,
+            disabledLabel: 'Unavailable',
             onTap: () => _reward(context, game, rewardedAds, 'rent', 420, 0),
           ),
           const SizedBox(height: 20),
@@ -818,7 +1557,17 @@ Widget _balanceColumn(String title, String value, Color color, IconData icon) =>
       Text(value, style: TextStyle(color: color, fontSize: 17, fontWeight: FontWeight.w800, fontFeatures: const [FontFeature.tabularFigures()])),
     ]);
 
-Widget _rewardTile({required IconData icon, required String title, required String subtitle, required Color color, required bool claimed, required bool enabled, required VoidCallback onTap}) => glassCard(
+Widget _rewardTile({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required Color color,
+  required bool claimed,
+  required bool enabled,
+  required VoidCallback onTap,
+  String disabledLabel = 'Limit',
+}) =>
+    glassCard(
       padding: const EdgeInsets.all(14),
       child: Row(children: [
         Container(width: 46, height: 46, decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(13)), child: Icon(icon, color: color)),
@@ -830,8 +1579,12 @@ Widget _rewardTile({required IconData icon, required String title, required Stri
         ])),
         if (claimed)
           const Icon(Icons.check_circle_rounded, color: _green)
+        else if (!enabled)
+          Text(disabledLabel,
+              style: const TextStyle(
+                  color: _muted, fontSize: 10, fontWeight: FontWeight.w700))
         else
-          OutlinedButton(onPressed: enabled ? onTap : null, style: OutlinedButton.styleFrom(foregroundColor: color, side: BorderSide(color: color.withValues(alpha: .5))), child: const Text('Watch')),
+          OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(foregroundColor: color, side: BorderSide(color: color.withValues(alpha: .5))), child: const Text('Watch')),
       ]),
     );
 
@@ -861,6 +1614,7 @@ Future<void> _reward(
               cashReward: cash,
               diamondReward: diamonds,
             ));
+  if (claimed) unawaited(HapticFeedback.mediumImpact());
   _showMessage(
     context,
     !earned
@@ -946,7 +1700,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 18),
                   Row(children: [
                     Expanded(child: _stat('NET WORTH', money(widget.game.netWorth), _gold)),
-                    Expanded(child: _stat('PROPERTIES', '1', _cyan)),
+                    Expanded(
+                      child: _stat(
+                        'PROPERTIES',
+                        '${widget.game.properties.length}',
+                        _cyan,
+                      ),
+                    ),
                     Expanded(child: _stat('ITEMS', '${widget.game.inventory.length}', _green)),
                   ]),
                 ]),

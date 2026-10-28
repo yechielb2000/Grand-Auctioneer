@@ -42,11 +42,12 @@ Use Google test ad units during development. Do not put credentials or productio
 
 ## Important limitations
 
-- The visible map, inventory, auction list, currency, and reward counts are still local demo state; they are not yet hydrated from Firestore. Google sign-in creates a `/users/{uid}` profile, and Firestore repository adapters are available for the next persistence step.
+- The map now opens an interactive starter-shed grid with separate furniture and vehicle slots. Demo bids, listings, balances, inventory, and reward counts remain local state; they are not hydrated from Firestore. The seeded opposing sealed bids are demo data, not other connected players.
 - Firestore transaction checks reduce accidental races, but client code cannot secure balances or ownership against a modified client. A strictly Spark-only design cannot provide cheat-resistant competitive settlement. Do not use this client-only economy for valuable purchases or real-money rewards.
 - The remote repository deliberately rejects Blind and Vickrey bids; publishing highest-bid fields for sealed auctions would reveal private bids, and correct winner settlement needs a trusted design.
-- FCM token registration is implemented, but sending notifications to other users requires a trusted sender and is not included. Do not send FCM credentials from the client.
+- Foreground FCM messages with `data.type=outbid` are shown in the app. Sending outbid messages to other users still requires a trusted sender, which is not included. Do not send FCM credentials from the client.
 - Rewarded ad callbacks are checked before changing the demo balance, but the balance change is still in memory and client-controlled. This is not a production reward-verification mechanism.
+- `daily_reward_limit` caps demo-session ad claims; claims are not persisted across restarts or enforced by a trusted server.
 - Set restrictive Firestore and Storage Security Rules before connecting a Firebase project. Never allow clients to freely update `cashBalance`, `gems`, ownership, auction results, or reward claims. Firebase quotas and Spark-plan availability can change; verify current Firebase terms and usage limits for the project.
 
 The repository intentionally contains no Firebase credentials, native runner configuration, Firestore/Storage rules, or production AdMob identifiers.
@@ -55,4 +56,4 @@ The repository intentionally contains no Firebase credentials, native runner con
 
 The dark-luxury palette is centralized in `lib/app/theme/app_colors.dart`. Original SVG currency, auction, category, and navigation icons are bundled under `assets/icons/`, registered in `lib/app/assets/app_assets.dart`, and rendered with `flutter_svg`.
 
-Property/item artwork, audio effects, and font files are not included yet; add licensed or original files in their corresponding `assets/images/`, `assets/sounds/`, and `assets/fonts/` directories before referencing them in the app.
+The map uses original in-app isometric property illustrations, and inventory/auction cards reuse the bundled category SVGs. Item placement and Dutch price changes animate; auction wins use an animated gavel/confetti celebration, with haptic feedback for wins, bids, sales, and rewards. Dedicated item sprites, audio effects, and font files are not included yet; add licensed or original files in their corresponding `assets/images/`, `assets/sounds/`, and `assets/fonts/` directories before referencing them in the app.

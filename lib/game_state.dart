@@ -39,6 +39,22 @@ class GameItem {
   bool placed;
 }
 
+class GameProperty {
+  const GameProperty({
+    required this.id,
+    required this.name,
+    required this.value,
+    required this.furnitureSlots,
+    required this.vehicleSlots,
+  });
+
+  final String id;
+  final String name;
+  final int value;
+  final int furnitureSlots;
+  final int vehicleSlots;
+}
+
 class GameAuction {
   GameAuction({
     required this.itemName,
@@ -50,7 +66,12 @@ class GameAuction {
     this.currentBid,
     this.bids = 0,
     this.myBid,
-  }) : startsAt = startsAt ?? DateTime.now();
+    List<int> demoCompetingBids = const [],
+    this.listedItem,
+    this.listedProperty,
+    this.isPlayerListing = false,
+  })  : startsAt = startsAt ?? DateTime.now(),
+        _demoCompetingBids = List.unmodifiable(demoCompetingBids);
 
   final String itemName;
   final IconData icon;
@@ -61,8 +82,20 @@ class GameAuction {
   int? currentBid;
   int bids;
   int? myBid;
+  final List<int> _demoCompetingBids;
+  final GameItem? listedItem;
+  final GameProperty? listedProperty;
+  final bool isPlayerListing;
+  bool resolved = false;
+  bool? playerWon;
+  int? winningBid;
+  int? clearingPrice;
+  List<int>? _revealedBids;
 
-  bool get isExpired => DateTime.now().isAfter(endsAt);
+  bool get isExpired => !DateTime.now().isBefore(endsAt);
+
+  List<int>? get revealedBids =>
+      resolved ? List.unmodifiable(_revealedBids ?? const []) : null;
 
   int get currentPrice {
     if (mode != AuctionMode.dutch) return currentBid ?? startingPrice;
@@ -117,6 +150,7 @@ class GameState extends ChangeNotifier {
             mode: AuctionMode.vickrey,
             startingPrice: 5200,
             bids: 9,
+            demoCompetingBids: [5600, 6200, 7100],
             endsAt: DateTime.now().add(const Duration(minutes: 24, seconds: 5)),
           ),
           GameAuction(
@@ -132,7 +166,17 @@ class GameState extends ChangeNotifier {
             mode: AuctionMode.sealedBid,
             startingPrice: 1800,
             bids: 6,
+            demoCompetingBids: [1950, 2200, 2600],
             endsAt: DateTime.now().add(const Duration(minutes: 15)),
+          ),
+        ],
+        properties = [
+          const GameProperty(
+            id: 'starter-shed',
+            name: 'Starter Shed',
+            value: 15000,
+            furnitureSlots: 2,
+            vehicleSlots: 1,
           ),
         ];
 
@@ -145,15 +189,45 @@ class GameState extends ChangeNotifier {
   int listingsToday = 0;
   final List<GameItem> inventory;
   final List<GameAuction> auctions;
+  final List<GameProperty> properties;
   final Set<String> claimedRewards = {};
 
   int get netWorth =>
-      cash + diamonds * 100 + inventory.fold(0, (total, item) => total + item.value);
+      cash +
+      diamonds * 100 +
+      inventory.fold(0, (total, item) => total + item.value) +
+      properties.fold(0, (total, property) => total + property.value) +
+      auctions.fold(
+        0,
+        (total, auction) =>
+            total +
+            (auction.isPlayerListing && !auction.resolved
+                ? (auction.listedItem?.value ?? auction.listedProperty?.value ?? 0)
+                : 0),
+      );
 
   int get placedCount => inventory.where((item) => item.placed).length;
+  int get placedFurnitureCount => inventory
+      .where((item) => item.placed && !_isVehicle(item))
+      .length;
+  int get placedVehicleCount =>
+      inventory.where((item) => item.placed && _isVehicle(item)).length;
+  int get availableCash =>
+      cash -
+      auctions
+          .where((auction) => !auction.resolved && auction.myBid != null)
+          .fold(0, (total, auction) => total + auction.myBid!);
 
   bool placeItem(GameItem item) {
-    if (item.placed || placedCount >= 2) return false;
+    if (!inventory.contains(item) || item.placed || properties.isEmpty) {
+      return false;
+    }
+    final property = properties.first;
+    if (_isVehicle(item)
+        ? placedVehicleCount >= property.vehicleSlots
+        : placedFurnitureCount >= property.furnitureSlots) {
+      return false;
+    }
     item.placed = true;
     notifyListeners();
     return true;
@@ -175,14 +249,24 @@ class GameState extends ChangeNotifier {
 
   bool placeBid(GameAuction auction, int amount) {
     if (auction.isExpired ||
+        auction.resolved ||
+        auction.isPlayerListing ||
         auction.mode == AuctionMode.dutch ||
-        auction.myBid != null ||
+        (auction.mode != AuctionMode.english && auction.myBid != null) ||
         amount < auction.startingPrice ||
-        amount > cash) {
+        amount >
+            cash -
+                auctions
+                    .where((other) =>
+                        !identical(other, auction) &&
+                        !other.resolved &&
+                        other.myBid != null)
+                    .fold(0, (total, other) => total + other.myBid!)) {
       return false;
     }
     if (auction.mode == AuctionMode.english &&
-        amount < (auction.currentBid ?? auction.startingPrice) * 1.05) {
+        auction.currentBid != null &&
+        amount < auction.currentBid! * 1.05) {
       return false;
     }
     if (auction.mode == AuctionMode.english &&
@@ -190,7 +274,7 @@ class GameState extends ChangeNotifier {
       auction.endsAt = auction.endsAt.add(auctionExtension);
     }
     auction.myBid = amount;
-    auction.currentBid = amount;
+    if (auction.mode == AuctionMode.english) auction.currentBid = amount;
     auction.bids++;
     notifyListeners();
     return true;
@@ -198,7 +282,11 @@ class GameState extends ChangeNotifier {
 
   bool claimDutchAuction(GameAuction auction) {
     final price = auction.currentPrice;
-    if (auction.mode != AuctionMode.dutch || auction.isExpired || cash < price) {
+    if (auction.mode != AuctionMode.dutch ||
+        auction.isExpired ||
+        auction.resolved ||
+        auction.isPlayerListing ||
+        availableCash < price) {
       return false;
     }
     cash -= price;
@@ -216,13 +304,84 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
+  bool resolveExpiredAuctions() {
+    var changed = false;
+    for (final auction in auctions) {
+      if (auction.resolved || !auction.isExpired) continue;
+
+      auction.resolved = true;
+      if (auction.mode == AuctionMode.dutch) {
+        auction.playerWon = false;
+        changed = true;
+        continue;
+      }
+
+      if (auction.mode == AuctionMode.english) {
+        auction.winningBid = auction.currentBid;
+        auction.clearingPrice = auction.currentBid;
+        auction.playerWon = auction.myBid != null;
+      } else {
+        final bids = [...auction._demoCompetingBids];
+        if (auction.myBid != null) bids.add(auction.myBid!);
+        bids.sort();
+        auction._revealedBids = bids;
+        auction.winningBid = bids.isEmpty ? null : bids.last;
+        final highestCompetitorBid = auction._demoCompetingBids.isEmpty
+            ? null
+            : auction._demoCompetingBids.reduce((a, b) => a > b ? a : b);
+        auction.playerWon = auction.myBid != null &&
+            (highestCompetitorBid == null ||
+                auction.myBid! > highestCompetitorBid);
+        if (auction.playerWon == true) {
+          final secondHighestBid = bids.length < 2 ? 0 : bids[bids.length - 2];
+          auction.clearingPrice = auction.mode == AuctionMode.vickrey
+              ? (secondHighestBid + 1)
+                  .clamp(auction.startingPrice, auction.myBid!)
+                  .toInt()
+              : auction.myBid;
+        } else {
+          auction.clearingPrice = auction.winningBid;
+        }
+      }
+
+      if (auction.playerWon == true && auction.clearingPrice != null) {
+        final price = auction.clearingPrice!;
+        cash -= price;
+        if (auction.listedItem != null) {
+          inventory.add(auction.listedItem!);
+        } else if (auction.listedProperty != null) {
+          properties.add(auction.listedProperty!);
+        } else {
+          inventory.add(
+            GameItem(
+              name: auction.itemName,
+              category: 'Auction win',
+              rarity: 'Rare',
+              value: price,
+              icon: auction.icon,
+            ),
+          );
+        }
+      } else if (auction.isPlayerListing) {
+        if (auction.listedItem != null) inventory.add(auction.listedItem!);
+        if (auction.listedProperty != null) {
+          properties.add(auction.listedProperty!);
+        }
+      }
+      changed = true;
+    }
+    if (changed) notifyListeners();
+    return changed;
+  }
+
   bool createListing(
     GameItem item,
     AuctionMode mode,
     int askingPrice, {
     Duration duration = const Duration(hours: 1),
   }) {
-    if (item.placed ||
+    if (!inventory.contains(item) ||
+        item.placed ||
         askingPrice <= 0 ||
         duration <= Duration.zero ||
         !inventory.remove(item)) {
@@ -236,6 +395,38 @@ class GameState extends ChangeNotifier {
         mode: mode,
         startingPrice: askingPrice,
         endsAt: DateTime.now().add(duration),
+        listedItem: item,
+        isPlayerListing: true,
+      ),
+    );
+    listingsToday++;
+    notifyListeners();
+    return true;
+  }
+
+  bool createPropertyListing(
+    GameProperty property,
+    AuctionMode mode,
+    int askingPrice, {
+    Duration duration = const Duration(hours: 1),
+  }) {
+    if (!properties.contains(property) ||
+        placedCount > 0 ||
+        askingPrice <= 0 ||
+        duration <= Duration.zero) {
+      return false;
+    }
+    properties.remove(property);
+    auctions.insert(
+      0,
+      GameAuction(
+        itemName: property.name,
+        icon: Icons.home_work_rounded,
+        mode: mode,
+        startingPrice: askingPrice,
+        endsAt: DateTime.now().add(duration),
+        listedProperty: property,
+        isPlayerListing: true,
       ),
     );
     listingsToday++;
@@ -244,14 +435,18 @@ class GameState extends ChangeNotifier {
   }
 
   bool collectRent() {
-    if (rent <= 0) return false;
+    if (rent <= 0 || properties.isEmpty) return false;
     cash += rent;
     notifyListeners();
     return true;
   }
 
   bool claimRentReward() {
-    if (claimedRewards.contains('rent') || rent <= 0) return false;
+    if (claimedRewards.contains('rent') ||
+        rent <= 0 ||
+        properties.isEmpty) {
+      return false;
+    }
     claimedRewards.add('rent');
     return collectRent();
   }
@@ -265,4 +460,7 @@ class GameState extends ChangeNotifier {
     notifyListeners();
     return true;
   }
+
+  static bool _isVehicle(GameItem item) =>
+      item.category == 'Vehicles' || item.category == 'Boats';
 }

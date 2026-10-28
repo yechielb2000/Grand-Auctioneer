@@ -1,4 +1,5 @@
 import 'package:auction_empire/game_state.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,16 +12,26 @@ void main() {
       game.dispose();
     });
 
-    test('limits property placement and allows removing an item', () {
+    test('fills furniture and vehicle slots independently', () {
       final game = GameState();
       final items = game.inventory;
+      final extraFurniture = GameItem(
+        name: 'Extra chair',
+        category: 'Furniture',
+        rarity: 'Common',
+        value: 100,
+        icon: Icons.chair,
+      );
+      game.inventory.add(extraFurniture);
 
       expect(game.placeItem(items[0]), isTrue);
       expect(game.placeItem(items[1]), isTrue);
-      expect(game.placeItem(items[2]), isFalse);
-      expect(game.removeItemFromProperty(items[0]), isTrue);
       expect(game.placeItem(items[2]), isTrue);
-      expect(game.placedCount, 2);
+      expect(game.placeItem(extraFurniture), isFalse);
+      expect(game.removeItemFromProperty(items[0]), isTrue);
+      expect(game.placeItem(extraFurniture), isTrue);
+      expect(game.placedFurnitureCount, 2);
+      expect(game.placedVehicleCount, 1);
       game.dispose();
     });
 
@@ -132,6 +143,75 @@ void main() {
       expect(listing.mode, AuctionMode.vickrey);
       expect(listing.endsAt.difference(listing.startsAt).inHours, 6);
       expect(game.inventory, isNot(contains(item)));
+      game.dispose();
+    });
+
+    test('keeps sealed bids private until expiry and settles a Vickrey win', () {
+      final game = GameState();
+      final auction = GameAuction(
+        itemName: 'Sealed test item',
+        icon: Icons.palette,
+        mode: AuctionMode.vickrey,
+        startingPrice: 100,
+        endsAt: DateTime.now().add(const Duration(minutes: 1)),
+        demoCompetingBids: [125, 140],
+      );
+      game.auctions.add(auction);
+
+      expect(game.placeBid(auction, 160), isTrue);
+      expect(auction.revealedBids, isNull);
+      expect(game.cash, 10000);
+
+      auction.endsAt = DateTime.now().subtract(const Duration(seconds: 1));
+      expect(game.resolveExpiredAuctions(), isTrue);
+      expect(auction.revealedBids, [125, 140, 160]);
+      expect(auction.playerWon, isTrue);
+      expect(auction.clearingPrice, 141);
+      expect(game.cash, 9859);
+      expect(game.inventory.last.name, 'Sealed test item');
+      game.dispose();
+    });
+
+    test('returns an unsold property listing when it expires', () {
+      final game = GameState();
+      final property = game.properties.single;
+
+      expect(
+        game.createPropertyListing(
+          property,
+          AuctionMode.english,
+          15000,
+          duration: const Duration(minutes: 1),
+        ),
+        isTrue,
+      );
+      expect(game.properties, isEmpty);
+
+      final listing = game.auctions.first;
+      listing.endsAt = DateTime.now().subtract(const Duration(seconds: 1));
+      expect(game.resolveExpiredAuctions(), isTrue);
+      expect(game.properties.single, same(property));
+      expect(listing.resolved, isTrue);
+      game.dispose();
+    });
+
+    test('allows raising an English bid without reserving the same cash twice', () {
+      final game = GameState();
+      final auction = GameAuction(
+        itemName: 'Rising test item',
+        icon: Icons.directions_car,
+        mode: AuctionMode.english,
+        startingPrice: 100,
+        currentBid: 100,
+        endsAt: DateTime.now().add(const Duration(minutes: 1)),
+      );
+      game.auctions.add(auction);
+
+      expect(game.placeBid(auction, 105), isTrue);
+      expect(game.availableCash, 9895);
+      expect(game.placeBid(auction, 111), isTrue);
+      expect(game.availableCash, 9889);
+      expect(game.placeBid(auction, 10000), isFalse);
       game.dispose();
     });
   });

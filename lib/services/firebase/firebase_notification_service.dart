@@ -27,6 +27,8 @@ class FirebaseNotificationService {
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<String>? _tokenSubscription;
 
+  Stream<RemoteMessage> get foregroundMessages => FirebaseMessaging.onMessage;
+
   Future<void> initialize() async {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     _authSubscription = _auth.authStateChanges().listen(
