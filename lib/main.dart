@@ -16,7 +16,10 @@ import 'app/widgets/app_icon.dart';
 import 'app/widgets/game_artwork.dart';
 import 'core/models/user_account.dart';
 import 'features/auth/domain/auth_service.dart';
+import 'features/map_properties/presentation/interactive_world_map.dart';
 import 'game_state.dart';
+import 'l10n/app_localization_helpers.dart';
+import 'l10n/generated/app_localizations.dart';
 import 'services/ads/rewarded_ad_service.dart';
 
 const _background = AppColors.background;
@@ -55,6 +58,7 @@ class AuctionEmpireApp extends StatefulWidget {
 
 class _AuctionEmpireAppState extends State<AuctionEmpireApp> {
   late final GameState game;
+  Locale? locale;
 
   @override
   void initState() {
@@ -79,8 +83,11 @@ class _AuctionEmpireAppState extends State<AuctionEmpireApp> {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: game,
         builder: (context, _) => MaterialApp(
-          title: 'Auction Empire',
+          onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+          locale: locale,
           debugShowCheckedModeBanner: false,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: _background,
@@ -104,6 +111,7 @@ class _AuctionEmpireAppState extends State<AuctionEmpireApp> {
             game: game,
             services: widget.services,
             rewardedAds: widget.rewardedAds,
+            onLocaleChanged: (value) => setState(() => locale = value),
           ),
         ),
       );
@@ -114,12 +122,14 @@ class GameHome extends StatefulWidget {
     required this.game,
     required this.services,
     required this.rewardedAds,
+    required this.onLocaleChanged,
     super.key,
   });
 
   final GameState game;
   final AppServices? services;
   final RewardedAdService? rewardedAds;
+  final ValueChanged<Locale> onLocaleChanged;
 
   @override
   State<GameHome> createState() => _GameHomeState();
@@ -127,7 +137,6 @@ class GameHome extends StatefulWidget {
 
 class _GameHomeState extends State<GameHome> {
   int selectedTab = 0;
-  final pages = const ['World', 'Auction House', 'My Assets', 'Bank & Rewards', 'Profile'];
   StreamSubscription<RemoteMessage>? _messageSubscription;
 
   @override
@@ -153,10 +162,11 @@ class _GameHomeState extends State<GameHome> {
 
   void _showOutbidMessage(RemoteMessage message) {
     if (message.data['type'] != 'outbid') return;
-    final title = message.notification?.title ?? 'You have been outbid';
+    final l10n = AppLocalizations.of(context)!;
+    final title = message.notification?.title ?? l10n.outbidTitle;
     final body = message.notification?.body ??
         message.data['body']?.toString() ??
-        'Another player placed a higher bid.';
+        l10n.outbidBody;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -178,13 +188,32 @@ class _GameHomeState extends State<GameHome> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final game = widget.game;
+    final pages = [
+      l10n.pageWorld,
+      l10n.pageAuctionHouse,
+      l10n.pageMyAssets,
+      l10n.pageBankRewards,
+      l10n.navProfile,
+    ];
+    const screenNames = [
+      'World',
+      'Auction House',
+      'My Assets',
+      'Bank & Rewards',
+      'Profile',
+    ];
     final screens = [
       MapScreen(game: game),
       AuctionScreen(game: game, isActive: selectedTab == 1),
       InventoryScreen(game: game),
       RewardsScreen(game: game, rewardedAds: widget.rewardedAds),
-      ProfileScreen(game: game, authService: widget.services?.auth),
+      ProfileScreen(
+        game: game,
+        authService: widget.services?.auth,
+        onLocaleChanged: widget.onLocaleChanged,
+      ),
     ];
     return Scaffold(
       appBar: AppBar(
@@ -192,11 +221,11 @@ class _GameHomeState extends State<GameHome> {
         titleSpacing: 18,
         title: Row(
           children: [
-            const AppIcon(
+            AppIcon(
               assetName: AppAssets.gem,
               color: _cyan,
               size: 23,
-              semanticLabel: 'Gems',
+              semanticLabel: l10n.gems,
             ),
             const SizedBox(width: 8),
             Text(pages[selectedTab], style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
@@ -219,34 +248,34 @@ class _GameHomeState extends State<GameHome> {
           setState(() => selectedTab = index);
           final analytics = widget.services?.analytics;
           if (analytics != null) {
-            unawaited(_logScreenView(analytics, pages[index]));
+            unawaited(_logScreenView(analytics, screenNames[index]));
           }
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: AppIcon(assetName: AppAssets.map, color: AppColors.textSecondary),
             selectedIcon: AppIcon(assetName: AppAssets.map, color: _gold),
-            label: 'Map',
+            label: l10n.navMap,
           ),
           NavigationDestination(
             icon: AppIcon(assetName: AppAssets.market, color: AppColors.textSecondary),
             selectedIcon: AppIcon(assetName: AppAssets.market, color: _gold),
-            label: 'Auctions',
+            label: l10n.navAuctions,
           ),
           NavigationDestination(
             icon: AppIcon(assetName: AppAssets.warehouse, color: AppColors.textSecondary),
             selectedIcon: AppIcon(assetName: AppAssets.warehouse, color: _gold),
-            label: 'Assets',
+            label: l10n.navAssets,
           ),
           NavigationDestination(
             icon: AppIcon(assetName: AppAssets.cash, color: AppColors.textSecondary),
             selectedIcon: AppIcon(assetName: AppAssets.cash, color: _gold),
-            label: 'Bank',
+            label: l10n.navBank,
           ),
           NavigationDestination(
             icon: AppIcon(assetName: AppAssets.profile, color: AppColors.textSecondary),
             selectedIcon: AppIcon(assetName: AppAssets.profile, color: _gold),
-            label: 'Profile',
+            label: l10n.navProfile,
           ),
         ],
       ),
@@ -326,179 +355,160 @@ class MapScreen extends StatelessWidget {
   final GameState game;
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          Row(children: [
-            const Expanded(child: Text('Your empire starts here', style: TextStyle(color: _muted))),
-            const Icon(Icons.my_location_rounded, color: _cyan, size: 17),
-            const SizedBox(width: 5),
-            const Text('SUBURBS', style: TextStyle(color: _cyan, fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
-          ]),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: SizedBox(
-              height: 330,
-              child: InteractiveViewer(
-                minScale: .75,
-                maxScale: 2.8,
-                boundaryMargin: const EdgeInsets.all(80),
-                child: Container(
-                  width: 580,
-                  height: 400,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF192A2B), Color(0xFF19212B), Color(0xFF282535)]),
-                  ),
-                  child: Stack(children: [
-                    Positioned(left: 30, top: 42, child: _mapDistrict('SUBURBS', Icons.park_rounded, const Color(0xFF28423C))),
-                    Positioned(left: 265, top: 28, child: _mapDistrict('DOWNTOWN', Icons.location_city_rounded, const Color(0xFF31394B))),
-                    Positioned(left: 340, top: 242, child: _mapDistrict('MARINA', Icons.sailing_rounded, const Color(0xFF263D50))),
-                    Positioned(
-                      left: 78,
-                      top: 200,
-                      child: _mapProperty(
-                        game.properties.isEmpty
-                            ? 'Available shed'
-                            : game.properties.first.name,
-                        game.properties.isNotEmpty,
-                        PropertyArtStyle.shed,
-                        onTap: game.properties.isEmpty
-                            ? null
-                            : () => showPropertySlots(context, game),
-                      ),
-                    ),
-                    Positioned(
-                      left: 270,
-                      top: 166,
-                      child: _mapProperty(
-                        'Available apartment',
-                        false,
-                        PropertyArtStyle.apartment,
-                      ),
-                    ),
-                    Positioned(
-                      left: 430,
-                      top: 70,
-                      child: _mapProperty(
-                        'Villa district',
-                        false,
-                        PropertyArtStyle.villa,
-                      ),
-                    ),
-                    Positioned(
-                      left: 462,
-                      top: 235,
-                      child: _mapProperty(
-                        'Marina',
-                        false,
-                        PropertyArtStyle.marina,
-                      ),
-                    ),
-                    Positioned(left: 100, top: 154, child: Transform.rotate(angle: -.45, child: Container(width: 210, height: 15, color: const Color(0xFF4A4D47)))),
-                    Positioned(left: 322, top: 65, child: Transform.rotate(angle: 1.1, child: Container(width: 255, height: 13, color: const Color(0xFF4A4D47)))),
-                  ]),
-                ),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.empireStartsHere,
+                style: const TextStyle(color: _muted),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (game.properties.isNotEmpty)
-            glassCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(width: 46, height: 46, decoration: BoxDecoration(color: _gold.withValues(alpha: .13), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.apartment_rounded, color: _gold)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(game.properties.first.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  SizedBox(height: 4),
-                  Text(
-                    'Your starter property · ${game.properties.first.furnitureSlots} furniture · ${game.properties.first.vehicleSlots} vehicle slots',
-                    style: const TextStyle(color: _muted, fontSize: 12),
-                  ),
-                ])),
-                const Icon(Icons.verified_rounded, color: _green, size: 20),
-              ]),
-              const Divider(height: 25, color: Color(0xFF2A3040)),
-              Row(children: [
-                const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('PASSIVE RENT', style: TextStyle(color: _muted, fontSize: 10, letterSpacing: 1.2)),
-                  SizedBox(height: 4),
-                  Text('\$420 / hour', style: TextStyle(color: _gold, fontWeight: FontWeight.w700)),
-                ])),
-                primaryButton(label: 'Collect rent', icon: Icons.attach_money_rounded, onPressed: game.collectRent),
-              ]),
-              const SizedBox(height: 12),
-              Text(
-                '${game.placedFurnitureCount}/${game.properties.first.furnitureSlots} furniture · ${game.placedVehicleCount}/${game.properties.first.vehicleSlots} vehicle slots used',
-                style: const TextStyle(color: _muted, fontSize: 12),
-              ),
-              const SizedBox(height: 7),
-              LinearProgressIndicator(
-                value: (game.placedFurnitureCount +
-                        game.placedVehicleCount) /
-                    (game.properties.first.furnitureSlots +
-                        game.properties.first.vehicleSlots),
-                minHeight: 5,
-                borderRadius: BorderRadius.circular(9),
-                color: _gold,
-                backgroundColor: const Color(0xFF2A3040),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => showPropertySlots(context, game),
-                  icon: const Icon(Icons.grid_view_rounded, size: 17),
-                  label: const Text('Open property slots'),
-                ),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 12),
-          const Text('Pinch to zoom · drag to explore districts', textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: 11)),
-        ],
-      );
-}
-
-Widget _mapDistrict(String name, IconData icon, Color color) => Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: color.withValues(alpha: .8), borderRadius: BorderRadius.circular(15)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white70, size: 17), const SizedBox(width: 6), Text(name, style: const TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w700))]),
-    );
-
-Widget _mapProperty(
-  String label,
-  bool owned,
-  PropertyArtStyle style, {
-  VoidCallback? onTap,
-}) =>
-    InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Semantics(
-        label: '$label${owned ? ', owned property' : ''}',
-        button: onTap != null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IsometricPropertyArt(style: style, size: 78),
-            const SizedBox(height: 1),
+            const Icon(Icons.public_rounded, color: _cyan, size: 17),
+            const SizedBox(width: 5),
             Text(
-              label,
-              style: TextStyle(
-                color: owned ? _gold : Colors.white70,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              l10n.districtSuburbs,
+              style: const TextStyle(
+                color: _cyan,
+                fontSize: 11,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 10),
+        InteractiveWorldMap(
+          game: game,
+          onManageHome: () => showPropertySlots(context, game),
+        ),
+        if (game.properties.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          glassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: _gold.withValues(alpha: .13),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: const Icon(Icons.apartment_rounded, color: _gold),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _localizedPropertyName(
+                              l10n,
+                              game.properties.first.name,
+                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.starterPropertyDetails(
+                              game.properties.first.furnitureSlots,
+                              game.properties.first.vehicleSlots,
+                            ),
+                            style: const TextStyle(color: _muted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.verified_rounded, color: _green, size: 20),
+                  ],
+                ),
+                const Divider(height: 25, color: Color(0xFF2A3040)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.passiveRent,
+                            style: const TextStyle(
+                              color: _muted,
+                              fontSize: 10,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.rentPerHour,
+                            style: const TextStyle(
+                              color: _gold,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    primaryButton(
+                      label: l10n.collectRent,
+                      icon: Icons.attach_money_rounded,
+                      onPressed: game.collectRent,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.placedSlotsUsed(
+                    game.placedFurnitureCount,
+                    game.properties.first.furnitureSlots,
+                    game.placedVehicleCount,
+                    game.properties.first.vehicleSlots,
+                  ),
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
+                const SizedBox(height: 7),
+                LinearProgressIndicator(
+                  value: (game.placedFurnitureCount + game.placedVehicleCount) /
+                      (game.properties.first.furnitureSlots +
+                          game.properties.first.vehicleSlots),
+                  minHeight: 5,
+                  borderRadius: BorderRadius.circular(9),
+                  color: _gold,
+                  backgroundColor: const Color(0xFF2A3040),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton.icon(
+                    onPressed: () => showPropertySlots(context, game),
+                    icon: const Icon(Icons.grid_view_rounded, size: 17),
+                    label: Text(l10n.openPropertySlots),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Text(
+          l10n.mapInstructions,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: _muted, fontSize: 11),
+        ),
+      ],
     );
+  }
+}
 
 Future<void> showPropertySlots(BuildContext context, GameState game) async {
   if (game.properties.isEmpty) return;
+  final l10n = AppLocalizations.of(context)!;
   final property = game.properties.first;
   await showModalBottomSheet<void>(
     context: context,
@@ -524,17 +534,17 @@ Future<void> showPropertySlots(BuildContext context, GameState game) async {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(property.name,
+              Text(_localizedPropertyName(l10n, property.name),
                   style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              const Text('Tap an empty slot to place an item from your warehouse.',
+              Text(l10n.placeItemHint,
                   style: TextStyle(color: _muted, fontSize: 12)),
               const SizedBox(height: 14),
               _propertySlotSection(
                 context,
                 game,
-                'Furniture',
+                l10n.furniture,
                 property.furnitureSlots,
                 (item) => item.category != 'Vehicles' &&
                     item.category != 'Boats',
@@ -544,7 +554,7 @@ Future<void> showPropertySlots(BuildContext context, GameState game) async {
               _propertySlotSection(
                 context,
                 game,
-                'Vehicles',
+                l10n.vehicles,
                 property.vehicleSlots,
                 (item) =>
                     item.category == 'Vehicles' || item.category == 'Boats',
@@ -566,6 +576,7 @@ Widget _propertySlotSection(
   bool Function(GameItem) accepts,
   IconData icon,
 ) {
+  final l10n = AppLocalizations.of(context)!;
   final placed = game.inventory.where((item) => item.placed && accepts(item));
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -597,12 +608,19 @@ Widget _propertySlotSection(
                         icon: item.icon,
                         category: item.category,
                         size: 42,
-                        semanticLabel: item.name,
+                        semanticLabel: _localizedItemName(l10n, item.name),
                       ),
-                title: Text(item?.name ?? 'Empty $category slot'),
+                title: Text(
+                  item == null
+                      ? l10n.emptySlot(category)
+                      : _localizedItemName(l10n, item.name),
+                ),
                 subtitle: Text(item == null
-                    ? 'Assign from your warehouse'
-                    : '${item.rarity} · ${item.category}'),
+                    ? l10n.assignFromWarehouse
+                    : l10n.itemRarityCategory(
+                        _localizedRarity(l10n, item.rarity),
+                        _localizedCategory(l10n, item.category),
+                      )),
                 trailing: Icon(
                   item == null
                       ? Icons.add_circle_outline
@@ -618,19 +636,21 @@ Widget _propertySlotSection(
                     if (available.isEmpty) {
                       _showMessage(
                         context,
-                        'No matching items in your warehouse.',
+                        l10n.noMatchingItems,
                       );
                       return;
                     }
                     final selected = await showDialog<GameItem>(
                       context: context,
                       builder: (context) => SimpleDialog(
-                        title: Text('Choose $category item'),
+                        title: Text(l10n.chooseCategoryItem(category)),
                         children: available
                             .map((candidate) => SimpleDialogOption(
                                   onPressed: () =>
                                       Navigator.pop(context, candidate),
-                                  child: Text(candidate.name),
+                                  child: Text(
+                                    _localizedItemName(l10n, candidate.name),
+                                  ),
                                 ))
                             .toList(),
                       ),
@@ -639,8 +659,8 @@ Widget _propertySlotSection(
                       _showMessage(
                         context,
                         game.placeItem(selected)
-                            ? 'Item assigned to your property.'
-                            : 'No matching property slot is available.',
+                            ? l10n.itemAssigned
+                            : l10n.noMatchingSlot,
                       );
                     }
                     return;
@@ -650,18 +670,21 @@ Widget _propertySlotSection(
                   final remove = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: Text(item.name),
+                      title: Text(_localizedItemName(l10n, item.name)),
                       content: Text(
-                        '${item.rarity} ${item.category.toLowerCase()} currently placed in your property.',
+                        l10n.placedItemDescription(
+                          _localizedRarity(l10n, item.rarity),
+                          _localizedCategory(l10n, item.category).toLowerCase(),
+                        ),
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Keep placed'),
+                          child: Text(l10n.keepPlaced),
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Return to warehouse'),
+                          child: Text(l10n.returnToWarehouse),
                         ),
                       ],
                     ),
@@ -755,6 +778,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final auctions = widget.game.auctions
         .where((auction) =>
             (auction.resolved || !auction.isExpired) &&
@@ -764,39 +788,39 @@ class _AuctionScreenState extends State<AuctionScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         Row(children: [
-          const Expanded(child: Text('Live marketplace', style: TextStyle(color: _muted))),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFF3B1821), borderRadius: BorderRadius.circular(20)), child: const Row(children: [Icon(Icons.circle, size: 7, color: Color(0xFFFF5470)), SizedBox(width: 6), Text('LIVE', style: TextStyle(color: Color(0xFFFF7184), fontSize: 10, fontWeight: FontWeight.w800))])),
+          Expanded(child: Text(l10n.liveMarketplace, style: const TextStyle(color: _muted))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFF3B1821), borderRadius: BorderRadius.circular(20)), child: Row(children: [const Icon(Icons.circle, size: 7, color: Color(0xFFFF5470)), const SizedBox(width: 6), Text(l10n.live, style: const TextStyle(color: Color(0xFFFF7184), fontSize: 10, fontWeight: FontWeight.w800))])),
         ]),
         const SizedBox(height: 14),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(children: [
-            _filterChip('All modes', filter == null, () => setState(() => filter = null)),
+            _filterChip(l10n.allModes, filter == null, () => setState(() => filter = null)),
             ...AuctionMode.values.map((mode) => Padding(
-                  padding: const EdgeInsets.only(left: 7),
-                  child: _filterChip(mode.label, filter == mode, () => setState(() => filter = mode)),
+                  padding: const EdgeInsetsDirectional.only(start: 7),
+                  child: _filterChip(_auctionModeLabel(l10n, mode), filter == mode, () => setState(() => filter = mode)),
                 )),
           ]),
         ),
         const SizedBox(height: 16),
-        sectionTitle('Ending soon', trailing: '${auctions.length} listings'),
+        sectionTitle(l10n.endingSoon, trailing: l10n.listingCount(auctions.length)),
         if (auctions.isEmpty)
-          glassCard(child: const Center(child: Text('No active auctions for this filter.', style: TextStyle(color: _muted))))
+          glassCard(child: Center(child: Text(l10n.noAuctionsForFilter, style: const TextStyle(color: _muted))))
         else
           ...auctions.map((auction) => Padding(
                 padding: const EdgeInsets.only(bottom: 11),
                 child: AuctionCard(auction: auction, game: widget.game),
               )),
         const SizedBox(height: 7),
-        sectionTitle('List an item or property'),
+        sectionTitle(l10n.listItemOrProperty),
         glassCard(
           child: Row(children: [
             const Icon(Icons.sell_rounded, color: _gold, size: 30),
             const SizedBox(width: 12),
-            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Turn your assets into cash', style: TextStyle(fontWeight: FontWeight.w700)),
-              SizedBox(height: 4),
-              Text('Choose an item or property and auction format.', style: TextStyle(color: _muted, fontSize: 12)),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(l10n.turnAssetsIntoCash, style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(l10n.chooseAuctionFormat, style: const TextStyle(color: _muted, fontSize: 12)),
             ])),
             IconButton(onPressed: () => showCreateListing(context, widget.game), icon: const Icon(Icons.add_circle_rounded, color: _green, size: 30)),
           ]),
@@ -824,6 +848,7 @@ class AuctionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final price = auction.currentPrice;
     return glassCard(
       padding: const EdgeInsets.all(15),
@@ -832,26 +857,29 @@ class AuctionCard extends StatelessWidget {
           GameItemArtwork(
             icon: auction.icon,
             size: 52,
-            semanticLabel: auction.itemName,
+            semanticLabel: _localizedItemName(l10n, auction.itemName),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(auction.itemName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            Text(
+              _localizedItemName(l10n, auction.itemName),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
             const SizedBox(height: 5),
-            Text(auction.mode.label.toUpperCase(), style: const TextStyle(color: _cyan, fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.w800)),
+            Text(_auctionModeLabel(l10n, auction.mode).toUpperCase(), style: const TextStyle(color: _cyan, fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.w800)),
           ])),
-          _countdown(auction.endsAt),
+          _countdown(context, auction.endsAt),
         ]),
         const SizedBox(height: 14),
         Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
               auction.mode == AuctionMode.dutch
-                  ? 'CURRENT PRICE'
+                  ? l10n.currentPrice
                   : auction.mode == AuctionMode.sealedBid ||
                           auction.mode == AuctionMode.vickrey
-                      ? 'STARTING PRICE'
-                      : 'CURRENT BID',
+                      ? l10n.startingPrice
+                      : l10n.currentBid,
               style: const TextStyle(
                   color: _muted, fontSize: 9, letterSpacing: 1),
             ),
@@ -883,24 +911,24 @@ class AuctionCard extends StatelessWidget {
           if (auction.mode != AuctionMode.dutch &&
               auction.mode != AuctionMode.sealedBid &&
               auction.mode != AuctionMode.vickrey)
-            Text('${auction.bids} bids', style: const TextStyle(color: _muted, fontSize: 11)),
+            Text(l10n.bidCount(auction.bids), style: const TextStyle(color: _muted, fontSize: 11)),
           const SizedBox(width: 10),
           if (auction.resolved)
-            const Chip(
-                label: Text('ENDED'),
+            Chip(
+                label: Text(l10n.ended),
                 visualDensity: VisualDensity.compact,
-                labelStyle: TextStyle(color: _muted, fontSize: 9))
+                labelStyle: const TextStyle(color: _muted, fontSize: 9))
           else if (auction.isPlayerListing)
-            const Chip(
-                label: Text('YOUR LISTING'),
+            Chip(
+                label: Text(l10n.yourListing),
                 visualDensity: VisualDensity.compact,
-                labelStyle: TextStyle(color: _cyan, fontSize: 9))
+                labelStyle: const TextStyle(color: _cyan, fontSize: 9))
           else if (auction.myBid != null &&
               auction.mode != AuctionMode.english)
-            const Chip(label: Text('BID PLACED'), visualDensity: VisualDensity.compact, labelStyle: TextStyle(color: _cyan, fontSize: 9))
+            Chip(label: Text(l10n.bidPlacedLabel), visualDensity: VisualDensity.compact, labelStyle: const TextStyle(color: _cyan, fontSize: 9))
           else
             primaryButton(
-              label: auction.mode == AuctionMode.dutch ? 'Buy now' : 'Place bid',
+              label: auction.mode == AuctionMode.dutch ? l10n.buyNow : l10n.placeBid,
               icon: auction.mode == AuctionMode.dutch ? Icons.bolt_rounded : Icons.gavel_rounded,
               onPressed: auction.mode == AuctionMode.dutch
                   ? () {
@@ -915,7 +943,7 @@ class AuctionCard extends StatelessWidget {
                       } else {
                         _showMessage(
                           context,
-                          'Not enough cash to claim this item.',
+                          l10n.notEnoughCashForClaim,
                         );
                       }
                     }
@@ -927,22 +955,24 @@ class AuctionCard extends StatelessWidget {
           if (!auction.resolved)
             Text(
               auction.myBid == null
-                  ? 'Bids stay sealed until the timer expires.'
-                  : 'Your sealed bid is ${money(auction.myBid!)}. All bids reveal when the timer expires.',
+                  ? l10n.sealedBidsStayHidden
+                  : l10n.yourSealedBid(money(auction.myBid!)),
               style: const TextStyle(color: _muted, fontSize: 10),
             )
           else ...[
             Text(
-              'Revealed bids: ${(auction.revealedBids ?? const <int>[]).map(money).join(' · ')}',
+              l10n.revealedBids(
+                (auction.revealedBids ?? const <int>[]).map(money).join(' · '),
+              ),
               style: const TextStyle(color: _muted, fontSize: 10),
             ),
             const SizedBox(height: 5),
             Text(
               auction.playerWon == true
-                  ? 'You won for ${money(auction.clearingPrice ?? auction.startingPrice)}.'
+                  ? l10n.youWonFor(money(auction.clearingPrice ?? auction.startingPrice))
                   : auction.winningBid == null
-                      ? 'No bids were placed.'
-                      : 'Auction ended · winning bid ${money(auction.winningBid!)}.',
+                      ? l10n.noBidsPlaced
+                      : l10n.auctionEndedWinningBid(money(auction.winningBid!)),
               style: TextStyle(
                   color: auction.playerWon == true ? _green : _gold,
                   fontSize: 11,
@@ -953,10 +983,10 @@ class AuctionCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             auction.playerWon == true
-                ? 'You won for ${money(auction.clearingPrice ?? auction.startingPrice)}.'
+                ? l10n.youWonFor(money(auction.clearingPrice ?? auction.startingPrice))
                 : auction.isPlayerListing
-                    ? 'Listing ended. The item or property was returned to your assets.'
-                    : 'Auction ended.',
+                    ? l10n.listingEndedReturned
+                    : l10n.auctionEnded,
             style: const TextStyle(color: _muted, fontSize: 10),
           ),
         ],
@@ -1005,7 +1035,9 @@ class _AuctionWinDialogState extends State<_AuctionWinDialog>
   }
 
   @override
-  Widget build(BuildContext context) => Dialog(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Dialog(
         backgroundColor: _surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
@@ -1048,8 +1080,8 @@ class _AuctionWinDialogState extends State<_AuctionWinDialog>
                   ],
                 ),
               ),
-              const Text(
-                'YOU WON!',
+              Text(
+                l10n.youWon,
                 style: TextStyle(
                   color: _gold,
                   fontSize: 24,
@@ -1059,7 +1091,7 @@ class _AuctionWinDialogState extends State<_AuctionWinDialog>
               ),
               const SizedBox(height: 8),
               Text(
-                widget.itemName,
+                _localizedItemName(l10n, widget.itemName),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
@@ -1068,14 +1100,14 @@ class _AuctionWinDialogState extends State<_AuctionWinDialog>
               ),
               const SizedBox(height: 5),
               Text(
-                'Winning price · ${money(widget.price)}',
+                l10n.winningPrice(money(widget.price)),
                 style: const TextStyle(color: _muted, fontSize: 12),
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: primaryButton(
-                  label: 'Continue',
+                  label: l10n.continueLabel,
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -1083,6 +1115,7 @@ class _AuctionWinDialogState extends State<_AuctionWinDialog>
           ),
         ),
       );
+  }
 }
 
 class _ConfettiPainter extends CustomPainter {
@@ -1126,20 +1159,22 @@ class _ConfettiPainter extends CustomPainter {
       progress != oldDelegate.progress;
 }
 
-Widget _countdown(DateTime end) {
+Widget _countdown(BuildContext context, DateTime end) {
+  final l10n = AppLocalizations.of(context)!;
   final remaining = end.difference(DateTime.now());
-  if (remaining.isNegative) return const Text('ENDED', style: TextStyle(color: _muted, fontSize: 10));
+  if (remaining.isNegative) return Text(l10n.ended, style: const TextStyle(color: _muted, fontSize: 10));
   final hours = remaining.inHours;
   final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
   final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
   return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-    const Text('ENDS IN', style: TextStyle(color: _muted, fontSize: 8, letterSpacing: 1)),
+    Text(l10n.endsIn, style: const TextStyle(color: _muted, fontSize: 8, letterSpacing: 1)),
     const SizedBox(height: 3),
-    Text(hours > 0 ? '${hours}h $minutes' : '$minutes:$seconds', style: const TextStyle(color: Color(0xFFFF7184), fontSize: 12, fontWeight: FontWeight.w700, fontFeatures: [FontFeature.tabularFigures()])),
+    Text(hours > 0 ? l10n.hoursMinutes(hours, minutes) : l10n.minutesSeconds(minutes, seconds), style: const TextStyle(color: Color(0xFFFF7184), fontSize: 12, fontWeight: FontWeight.w700, fontFeatures: [FontFeature.tabularFigures()])),
   ]);
 }
 
 Future<void> showBidDialog(BuildContext context, GameState game, GameAuction auction) async {
+  final l10n = AppLocalizations.of(context)!;
   final minimum = auction.mode == AuctionMode.english &&
           auction.currentBid != null
       ? (auction.currentBid! * 1.05).ceil()
@@ -1156,7 +1191,7 @@ Future<void> showBidDialog(BuildContext context, GameState game, GameAuction auc
   if (amount == null || !context.mounted) return;
   final placed = game.placeBid(auction, amount);
   if (placed) unawaited(HapticFeedback.mediumImpact());
-  _showMessage(context, placed ? 'Your bid was placed.' : 'Bid was rejected. Check your balance and minimum bid.');
+  _showMessage(context, placed ? l10n.bidPlaced : l10n.bidRejected);
 }
 
 class BidDialog extends StatefulWidget {
@@ -1184,15 +1219,17 @@ class _BidDialogState extends State<BidDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: Text(widget.sealed ? 'Submit sealed bid' : 'Place your bid'),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+        title: Text(widget.sealed ? l10n.submitSealedBid : l10n.placeYourBid),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Minimum ${money(widget.minimum)} · balance ${money(widget.balance)}', style: const TextStyle(color: _muted, fontSize: 12)),
+          Text(l10n.minimumBalance(money(widget.minimum), money(widget.balance)), style: const TextStyle(color: _muted, fontSize: 12)),
           if (widget.sealed) ...[
             const SizedBox(height: 8),
-            const Text(
-              'Your amount remains hidden from the marketplace until the auction ends.',
-              style: TextStyle(color: _cyan, fontSize: 11),
+            Text(
+              l10n.sealedBidHint,
+              style: const TextStyle(color: _cyan, fontSize: 11),
             ),
           ],
           const SizedBox(height: 14),
@@ -1200,16 +1237,17 @@ class _BidDialogState extends State<BidDialog> {
             controller: input,
             keyboardType: TextInputType.number,
             autofocus: true,
-            decoration: const InputDecoration(prefixText: '\$ ', labelText: 'Your bid', border: OutlineInputBorder()),
+            decoration: InputDecoration(prefixText: '\$ ', labelText: l10n.yourBid, border: const OutlineInputBorder()),
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
           FilledButton(
               onPressed: () => Navigator.pop(context, int.tryParse(input.text)),
-              child: Text(widget.sealed ? 'Seal bid' : 'Confirm bid')),
+              child: Text(widget.sealed ? l10n.sealBid : l10n.confirmBid)),
         ],
       );
+  }
 }
 
 class InventoryScreen extends StatelessWidget {
@@ -1217,18 +1255,20 @@ class InventoryScreen extends StatelessWidget {
   final GameState game;
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           Row(children: [
-            Expanded(child: Text('${game.inventory.length} items ready to trade', style: const TextStyle(color: _muted))),
+            Expanded(child: Text(l10n.itemsReadyToTrade(game.inventory.length), style: const TextStyle(color: _muted))),
             const Icon(Icons.warehouse_rounded, color: _gold, size: 18),
             const SizedBox(width: 5),
-            const Text('4 / 20 SLOTS', style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.w700)),
+            Text(l10n.slotCount(game.inventory.length, 20), style: const TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 14),
           if (game.inventory.isEmpty)
-            glassCard(child: const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Your warehouse is empty. Win an auction or collect a reward to get started.', textAlign: TextAlign.center, style: TextStyle(color: _muted)))))
+            glassCard(child: Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(l10n.warehouseEmpty, textAlign: TextAlign.center, style: const TextStyle(color: _muted)))))
           else
             ...game.inventory.map((item) => Padding(
                   padding: const EdgeInsets.only(bottom: 11),
@@ -1238,40 +1278,52 @@ class InventoryScreen extends StatelessWidget {
                       GameItemArtwork(
                         icon: item.icon,
                         category: item.category,
-                        semanticLabel: item.name,
+                        semanticLabel: _localizedItemName(l10n, item.name),
                       ),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        Text(
+                          _localizedItemName(l10n, item.name),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('${item.rarity} · ${item.category}', style: const TextStyle(color: _muted, fontSize: 11)),
+                        Text(
+                          l10n.itemRarityCategory(
+                            _localizedRarity(l10n, item.rarity),
+                            _localizedCategory(l10n, item.category),
+                          ),
+                          style: const TextStyle(color: _muted, fontSize: 11),
+                        ),
                         const SizedBox(height: 4),
-                        Text('Est. value ${money(item.value)}', style: const TextStyle(color: _gold, fontSize: 11, fontWeight: FontWeight.w600)),
+                        Text(l10n.estimatedValue(money(item.value)), style: const TextStyle(color: _gold, fontSize: 11, fontWeight: FontWeight.w600)),
                       ])),
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert_rounded, color: _muted),
                         onSelected: (action) {
                           if (action == 'place') {
                             final placed = game.placeItem(item);
-                            _showMessage(context, placed ? 'Placed in your studio.' : 'All property display slots are in use.');
+                            _showMessage(context, placed ? l10n.placedInStudio : l10n.slotsInUse);
                           } else if (action == 'unplace') {
                             game.removeItemFromProperty(item);
-                            _showMessage(context, 'Removed from your studio.');
+                            _showMessage(context, l10n.removedFromStudio);
                           } else if (action == 'sell') {
                             final sold = game.quickSell(item);
                             if (sold) unawaited(HapticFeedback.mediumImpact());
-                            _showMessage(context, sold ? 'Sold for ${money((item.value * .65).round())}.' : 'Remove this item from your studio before selling.');
+                            _showMessage(context, sold ? l10n.soldFor(money((item.value * .65).round())) : l10n.removeBeforeSelling);
                           } else if (action == 'auction') {
                             showCreateListing(context, game, item: item);
                           }
                         },
                         itemBuilder: (_) => [
                           if (item.placed)
-                            const PopupMenuItem(value: 'unplace', child: Text('Remove from studio'))
+                            PopupMenuItem(value: 'unplace', child: Text(l10n.removeFromStudio))
                           else ...[
-                            const PopupMenuItem(value: 'place', child: Text('Place in studio')),
-                            const PopupMenuItem(value: 'auction', child: Text('List for auction')),
-                            const PopupMenuItem(value: 'sell', child: Text('Quick sell · 65%')),
+                            PopupMenuItem(value: 'place', child: Text(l10n.placeInStudio)),
+                            PopupMenuItem(value: 'auction', child: Text(l10n.listForAuction)),
+                            PopupMenuItem(value: 'sell', child: Text(l10n.quickSell)),
                           ],
                         ],
                       ),
@@ -1282,13 +1334,15 @@ class InventoryScreen extends StatelessWidget {
           glassCard(child: Row(children: [
             const Icon(Icons.tips_and_updates_rounded, color: _cyan),
             const SizedBox(width: 10),
-            const Expanded(child: Text('Display rare items in your property to increase prestige and rental income.', style: TextStyle(color: _muted, fontSize: 12))),
+            Expanded(child: Text(l10n.propertyPrestigeHint, style: const TextStyle(color: _muted, fontSize: 12))),
           ])),
         ],
       );
+  }
 }
 
 Future<void> showCreateListing(BuildContext context, GameState game, {GameItem? item}) async {
+  final l10n = AppLocalizations.of(context)!;
   final available = item == null ? game.inventory.where((asset) => !asset.placed).toList() : [item];
   final properties = item == null && game.placedCount == 0
       ? game.properties
@@ -1297,8 +1351,8 @@ Future<void> showCreateListing(BuildContext context, GameState game, {GameItem? 
     _showMessage(
       context,
       game.placedCount > 0 && game.properties.isNotEmpty
-          ? 'Remove displayed items before listing your property.'
-          : 'No available items or properties to list.',
+          ? l10n.removeBeforeListingProperty
+          : l10n.nothingToList,
     );
     return;
   }
@@ -1322,7 +1376,12 @@ Future<void> showCreateListing(BuildContext context, GameState game, {GameItem? 
             selection.price,
             duration: selection.duration,
           );
-  _showMessage(context, success ? 'Your ${selection.mode.label} auction is live.' : 'Could not create listing.');
+  _showMessage(
+    context,
+    success
+        ? l10n.auctionCreated(_auctionModeLabel(l10n, selection.mode))
+        : l10n.couldNotCreateListing,
+  );
 }
 
 class _ListingSelection {
@@ -1377,14 +1436,16 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Create auction'),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+        title: Text(l10n.createAuction),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (widget.items.isNotEmpty && widget.properties.isNotEmpty)
             SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Item')),
-                ButtonSegment(value: true, label: Text('Property')),
+              segments: [
+                ButtonSegment(value: false, label: Text(l10n.item)),
+                ButtonSegment(value: true, label: Text(l10n.property)),
               ],
               selected: {listingProperty},
               onSelectionChanged: (selection) => setState(() {
@@ -1397,11 +1458,11 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
           if (listingProperty)
             DropdownButtonFormField<GameProperty>(
               value: property,
-              decoration: const InputDecoration(labelText: 'Property'),
+              decoration: InputDecoration(labelText: l10n.property),
               items: widget.properties
                   .map((ownedProperty) => DropdownMenuItem(
                         value: ownedProperty,
-                        child: Text(ownedProperty.name,
+                        child: Text(_localizedPropertyName(l10n, ownedProperty.name),
                             overflow: TextOverflow.ellipsis),
                       ))
                   .toList(),
@@ -1413,11 +1474,11 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
           else
             DropdownButtonFormField<GameItem>(
               value: item,
-              decoration: const InputDecoration(labelText: 'Item'),
+              decoration: InputDecoration(labelText: l10n.item),
               items: widget.items
                   .map((asset) => DropdownMenuItem(
                         value: asset,
-                        child: Text(asset.name,
+                        child: Text(_localizedItemName(l10n, asset.name),
                             overflow: TextOverflow.ellipsis),
                       ))
                   .toList(),
@@ -1429,22 +1490,26 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
           const SizedBox(height: 12),
           DropdownButtonFormField<AuctionMode>(
             value: mode,
-            decoration: const InputDecoration(labelText: 'Auction format'),
-            items: AuctionMode.values.map((option) => DropdownMenuItem(value: option, child: Text(option.label))).toList(),
+            decoration: InputDecoration(labelText: l10n.auctionFormat),
+            items: AuctionMode.values.map((option) => DropdownMenuItem(value: option, child: Text(_auctionModeLabel(l10n, option)))).toList(),
             onChanged: (value) => setState(() => mode = value!),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: durationLabel,
-            decoration: const InputDecoration(labelText: 'Duration'),
-            items: durations.keys.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+            decoration: InputDecoration(labelText: l10n.duration),
+            items: durations.keys.map((value) => DropdownMenuItem(value: value, child: Text(switch (value) {
+              '1 hour' => l10n.oneHour,
+              '6 hours' => l10n.sixHours,
+              _ => l10n.twentyFourHours,
+            }))).toList(),
             onChanged: (value) => setState(() => durationLabel = value!),
           ),
           const SizedBox(height: 12),
-          TextField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(prefixText: '\$ ', labelText: 'Starting price')),
+          TextField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: '\$ ', labelText: l10n.startingPriceLabel)),
         ])),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
           FilledButton(
             onPressed: () {
               final parsed = int.tryParse(price.text);
@@ -1464,10 +1529,11 @@ class _CreateListingDialogState extends State<CreateListingDialog> {
                 ),
               );
             },
-            child: Text(listingProperty ? 'List property' : 'List item'),
+            child: Text(listingProperty ? l10n.listProperty : l10n.listItem),
           ),
         ],
       );
+  }
 }
 
 class RewardsScreen extends StatelessWidget {
@@ -1476,60 +1542,63 @@ class RewardsScreen extends StatelessWidget {
   final RewardedAdService? rewardedAds;
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           glassCard(
             child: Row(children: [
-              Expanded(child: _balanceColumn('AVAILABLE CASH', money(game.cash), _gold, Icons.payments_rounded)),
+              Expanded(child: _balanceColumn(l10n.availableCash, money(game.cash), _gold, Icons.payments_rounded)),
               Container(width: 1, height: 48, color: Colors.white12),
-              Expanded(child: _balanceColumn('DIAMONDS', '${game.diamonds}', _cyan, Icons.diamond_rounded)),
+              Expanded(child: _balanceColumn(l10n.diamonds, '${game.diamonds}', _cyan, Icons.diamond_rounded)),
             ]),
           ),
           const SizedBox(height: 18),
           sectionTitle(
-            'Earn rewards',
-            trailing:
-                '${game.dailyRewardLimit - game.dailyRewardClaims} claims left this session',
+            l10n.earnRewards,
+            trailing: l10n.claimsLeft(
+              game.dailyRewardLimit - game.dailyRewardClaims,
+            ),
           ),
           Text(
             rewardedAds == null
-                ? 'Choose a reward to simulate a completed rewarded video.'
-                : 'Watch a rewarded video to claim cash or diamonds.',
+                ? l10n.simulateReward
+                : l10n.watchReward,
             style: const TextStyle(color: _muted, fontSize: 12),
           ),
           const SizedBox(height: 12),
           _rewardTile(
             icon: Icons.account_balance_rounded,
-            title: 'Cash boost',
-            subtitle: '+\$2,500 cash · up to ${game.dailyRewardLimit} per session',
+            title: l10n.cashBoost,
+            subtitle: l10n.cashRewardSubtitle(game.dailyRewardLimit),
             color: _gold,
             claimed: false,
             enabled: game.dailyRewardClaims < game.dailyRewardLimit,
-            disabledLabel: 'Limit',
+            disabledLabel: l10n.limit,
             onTap: () => _reward(context, game, rewardedAds, 'cash', 2500, 0),
           ),
           const SizedBox(height: 10),
           _rewardTile(
             icon: Icons.diamond_rounded,
-            title: 'Diamond drop',
-            subtitle: '+5 diamonds · up to ${game.dailyRewardLimit} per session',
+            title: l10n.diamondDrop,
+            subtitle: l10n.diamondRewardSubtitle(game.dailyRewardLimit),
             color: _cyan,
             claimed: false,
             enabled: game.dailyRewardClaims < game.dailyRewardLimit,
-            disabledLabel: 'Limit',
+            disabledLabel: l10n.limit,
             onTap: () => _reward(context, game, rewardedAds, 'diamonds', 0, 5),
           ),
           const SizedBox(height: 10),
           _rewardTile(
             icon: Icons.home_work_rounded,
-            title: 'Instant rent',
-            subtitle: '+\$420 from your studio',
+            title: l10n.instantRent,
+            subtitle: l10n.instantRentSubtitle,
             color: _green,
             claimed: game.claimedRewards.contains('rent'),
             enabled: !game.claimedRewards.contains('rent') &&
                 game.properties.isNotEmpty,
-            disabledLabel: 'Unavailable',
+            disabledLabel: l10n.unavailable,
             onTap: () => _reward(context, game, rewardedAds, 'rent', 420, 0),
           ),
           const SizedBox(height: 20),
@@ -1539,14 +1608,15 @@ class RewardsScreen extends StatelessWidget {
             Expanded(
               child: Text(
                 rewardedAds == null
-                    ? 'Rewards are simulated in this demo. Production rewards must be granted only after Google Mobile Ads confirms the earned-reward callback.'
-                    : 'Cash and diamond rewards are applied only after the ad reports an earned reward. Client-side reward claims are not cheat-resistant.',
+                    ? l10n.demoRewardsNotice
+                    : l10n.realRewardsNotice,
                 style: const TextStyle(color: _muted, fontSize: 11, height: 1.5),
               ),
             ),
           ])),
         ],
       );
+  }
 }
 
 Widget _balanceColumn(String title, String value, Color color, IconData icon) => Column(children: [
@@ -1584,7 +1654,7 @@ Widget _rewardTile({
               style: const TextStyle(
                   color: _muted, fontSize: 10, fontWeight: FontWeight.w700))
         else
-          OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(foregroundColor: color, side: BorderSide(color: color.withValues(alpha: .5))), child: const Text('Watch')),
+          OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(foregroundColor: color, side: BorderSide(color: color.withValues(alpha: .5))), child: Text(AppLocalizations.of(context)!.watch)),
       ]),
     );
 
@@ -1596,12 +1666,13 @@ Future<void> _reward(
   int cash,
   int diamonds,
 ) async {
+  final l10n = AppLocalizations.of(context)!;
   var earned = true;
   if (id != 'rent' && rewardedAds != null) {
     try {
       earned = await rewardedAds.showRewardedAd();
     } catch (error) {
-      if (context.mounted) _showMessage(context, 'Could not load or show ad: $error');
+      if (context.mounted) _showMessage(context, l10n.adLoadError(error.toString()));
       return;
     }
   }
@@ -1618,17 +1689,23 @@ Future<void> _reward(
   _showMessage(
     context,
     !earned
-        ? 'Watch the full ad to earn this reward.'
+        ? l10n.watchFullAd
         : claimed
-            ? 'Reward claimed.'
-            : 'Daily reward limit reached.',
+            ? l10n.rewardClaimed
+            : l10n.dailyRewardLimitReached,
   );
 }
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({required this.game, this.authService, super.key});
+  const ProfileScreen({
+    required this.game,
+    required this.onLocaleChanged,
+    this.authService,
+    super.key,
+  });
   final GameState game;
   final AuthService? authService;
+  final ValueChanged<Locale> onLocaleChanged;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -1637,7 +1714,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool sound = true;
   bool haptics = true;
-  String language = 'English';
   late final Stream<UserAccount?>? accountStream;
 
   @override
@@ -1647,7 +1723,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context);
+    return ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           StreamBuilder<UserAccount?>(
@@ -1683,7 +1762,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    account?.displayName ?? 'Empire Builder',
+                    account?.displayName ?? l10n.empireBuilder,
                     style: const TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
@@ -1693,21 +1772,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(
                     account?.email ??
                         (widget.authService == null
-                            ? 'Demo profile · local only'
-                            : 'Sign in to sync your Google profile'),
+                            ? l10n.demoProfile
+                            : l10n.signInToSync),
                     style: const TextStyle(color: _muted, fontSize: 12),
                   ),
                   const SizedBox(height: 18),
                   Row(children: [
-                    Expanded(child: _stat('NET WORTH', money(widget.game.netWorth), _gold)),
+                    Expanded(child: _stat(l10n.netWorth, money(widget.game.netWorth), _gold)),
                     Expanded(
                       child: _stat(
-                        'PROPERTIES',
+                        l10n.properties,
                         '${widget.game.properties.length}',
                         _cyan,
                       ),
                     ),
-                    Expanded(child: _stat('ITEMS', '${widget.game.inventory.length}', _green)),
+                    Expanded(child: _stat(l10n.items, '${widget.game.inventory.length}', _green)),
                   ]),
                 ]),
               );
@@ -1724,17 +1803,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.account_circle_rounded, color: _cyan),
-                    title: Text(account?.displayName ?? 'Connect Google account'),
+                    title: Text(account?.displayName ?? l10n.connectGoogle),
                     subtitle: Text(
                       snapshot.hasError
-                          ? 'Could not load account: ${snapshot.error}'
-                          : account?.email ?? 'Sync a profile with Firebase',
+                          ? l10n.couldNotLoadAccount(snapshot.error.toString())
+                          : account?.email ?? l10n.syncWithFirebase,
                     ),
                     trailing: TextButton(
                       onPressed: snapshot.connectionState == ConnectionState.waiting
                           ? null
                           : () => _toggleAccount(context, widget.authService!, account),
-                      child: Text(account == null ? 'Sign in' : 'Sign out'),
+                      child: Text(account == null ? l10n.signIn : l10n.signOut),
                     ),
                   ),
                 );
@@ -1742,15 +1821,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
           const SizedBox(height: 18),
-          sectionTitle('Preferences'),
+          sectionTitle(l10n.preferences),
           glassCard(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Column(children: [
-              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Sound effects'), secondary: const Icon(Icons.volume_up_rounded, color: _muted), value: sound, onChanged: (value) => setState(() => sound = value)),
+              SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(l10n.soundEffects), secondary: const Icon(Icons.volume_up_rounded, color: _muted), value: sound, onChanged: (value) => setState(() => sound = value)),
               const Divider(height: 1, color: Color(0xFF2A3040)),
-              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Haptic feedback'), secondary: const Icon(Icons.vibration_rounded, color: _muted), value: haptics, onChanged: (value) => setState(() => haptics = value)),
+              SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(l10n.hapticFeedback), secondary: const Icon(Icons.vibration_rounded, color: _muted), value: haptics, onChanged: (value) => setState(() => haptics = value)),
               const Divider(height: 1, color: Color(0xFF2A3040)),
-              ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.translate_rounded, color: _muted), title: const Text('Language'), trailing: DropdownButton<String>(value: language, underline: const SizedBox.shrink(), items: const [DropdownMenuItem(value: 'English', child: Text('English')), DropdownMenuItem(value: 'עברית', child: Text('עברית'))], onChanged: (value) => setState(() => language = value!))),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.translate_rounded, color: _muted),
+                title: Text(l10n.language),
+                trailing: DropdownButton<Locale>(
+                  value: locale,
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    DropdownMenuItem(
+                      value: const Locale('en'),
+                      child: Text(l10n.english),
+                    ),
+                    DropdownMenuItem(
+                      value: const Locale('he'),
+                      child: Text(l10n.hebrew),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) widget.onLocaleChanged(value);
+                  },
+                ),
+              ),
             ]),
           ),
           const SizedBox(height: 12),
@@ -1758,23 +1858,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: EdgeInsets.zero,
             child: ListTile(
               leading: const Icon(Icons.school_rounded, color: _gold),
-              title: const Text('How to play'),
-              subtitle: const Text('Learn to furnish and trade'),
+              title: Text(l10n.howToPlay),
+              subtitle: Text(l10n.learnToTrade),
               trailing: const Icon(Icons.chevron_right_rounded, color: _muted),
               onTap: () => showDialog<void>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Build your empire'),
-                  content: const Text('1. Place an item in your studio to build prestige.\n\n2. List spare items at the Auction House or quick-sell them for cash.\n\n3. Bid on assets, collect rent, and grow your net worth.'),
-                  actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Let’s go'))],
+                  title: Text(l10n.buildEmpire),
+                  content: Text(l10n.tutorialSteps),
+                  actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.letsGo))],
                 ),
               ),
             ),
           ),
           const SizedBox(height: 12),
-          const Center(child: Text('AUCTION EMPIRE · DEMO BUILD', style: TextStyle(color: _muted, fontSize: 9, letterSpacing: 1.4))),
+          Center(child: Text(l10n.demoBuild, style: const TextStyle(color: _muted, fontSize: 9, letterSpacing: 1.4))),
         ],
       );
+  }
 }
 
 Future<void> _toggleAccount(
@@ -1782,6 +1883,7 @@ Future<void> _toggleAccount(
   AuthService authService,
   UserAccount? account,
 ) async {
+  final l10n = AppLocalizations.of(context)!;
   try {
     if (account == null) {
       await authService.signInWithGoogle();
@@ -1789,7 +1891,7 @@ Future<void> _toggleAccount(
       await authService.signOut();
     }
   } catch (error) {
-    if (context.mounted) _showMessage(context, 'Account action failed: $error');
+    if (context.mounted) _showMessage(context, l10n.accountActionFailed(error.toString()));
   }
 }
 
@@ -1798,6 +1900,26 @@ Widget _stat(String label, String value, Color color) => Column(children: [
       const SizedBox(height: 6),
       Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 14, fontFeatures: const [FontFeature.tabularFigures()])),
     ]);
+
+String _auctionModeLabel(AppLocalizations l10n, AuctionMode mode) =>
+    switch (mode) {
+      AuctionMode.english => l10n.auctionModeEnglish,
+      AuctionMode.dutch => l10n.auctionModeDutch,
+      AuctionMode.sealedBid => l10n.auctionModeSealed,
+      AuctionMode.vickrey => l10n.auctionModeVickrey,
+    };
+
+String _localizedCategory(AppLocalizations l10n, String category) =>
+    localizedCategory(l10n, category);
+
+String _localizedRarity(AppLocalizations l10n, String rarity) =>
+    localizedRarity(l10n, rarity);
+
+String _localizedItemName(AppLocalizations l10n, String name) =>
+    localizedItemName(l10n, name);
+
+String _localizedPropertyName(AppLocalizations l10n, String name) =>
+    localizedPropertyName(l10n, name);
 
 void _showMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
