@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwn(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validStarterProperty(uid, propertyId) {
+      let data = request.resource.data;
+      return propertyId == starterPropertyId(uid)
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'name', 'type', 'coordinates', 'capacity',
+          'placedItemIds', 'isListedForAuction'
+        ])
+        && data.keys().hasAll([
+          'id', 'ownerId', 'name', 'type', 'coordinates', 'capacity',
+          'placedItemIds', 'isListedForAuction'
+        ])
+        && data.id == propertyId
+        && data.ownerId == uid
+        && data.name == 'Small Studio Apartment'
+        && data.type == 'apartment'
+        && data.coordinates == {'x': 0, 'y': 0}
+        && data.capacity == {'furnitureSlots': 2, 'vehicleSlots': 0}
+        && data.placedItemIds == []
+        && data.isListedForAuction == false;
+    }
+
+    function validStarterAsset(uid, assetId) {
+      let data = request.resource.data;
+      let isSofa = assetId == 'starter_asset_' + uid + '_vintage_velvet_sofa'
+        && data.name == 'Vintage Velvet Sofa'
+        && data.category == 'furniture'
+        && data.rarity == 'rare'
+        && data.estimatedValue == 1850
+        && data.iconPath == 'builtin:game-item/vintage-velvet-sofa';
+      let isScooter = assetId == 'starter_asset_' + uid + '_city_scooter'
+        && data.name == 'Classic City Scooter'
+        && data.category == 'vehicle'
+        && data.rarity == 'common'
+        && data.estimatedValue == 2400
+        && data.iconPath == 'builtin:game-item/classic-city-scooter';
+      let isArcadeCabinet = assetId == 'starter_asset_' + uid + '_retro_arcade_cabinet'
+        && data.name == 'Retro Arcade Cabinet'
+        && data.category == 'collectible'
+        && data.rarity == 'epic'
+        && data.estimatedValue == 3200
+        && data.iconPath == 'builtin:game-item/retro-arcade-cabinet';
+      return (isSofa || isScooter || isArcadeCabinet)
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'name', 'category', 'rarity', 'estimatedValue',
+          'currentLocationPropertyId', 'iconPath'
+        ])
+        && data.keys().hasAll([
+          'id', 'ownerId', 'name', 'category', 'rarity', 'estimatedValue',
+          'currentLocationPropertyId', 'iconPath'
+        ])
+        && data.id == assetId
+        && data.ownerId == uid
+        && data.currentLocationPropertyId == null;
+    }
+
+    function validInitialUser(uid) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoUrl', 'cashBalance',
+          'reservedBalance', 'gems', 'netWorth', 'createdAt'
+        ])
+        && data.keys().hasAll([
+          'uid', 'displayName', 'email', 'photoUrl', 'cashBalance',
+          'gems', 'netWorth', 'createdAt'
+        ])
+        && data.uid == uid
+        && data.displayName is string
+        && data.displayName.size() > 0
+        && data.displayName.size() <= 120
+        && data.email is string
+        && data.email.size() <= 320
+        && data.photoUrl is string
+        && data.photoUrl.size() <= 2048
+        && data.cashBalance == 10000
+        && (!('reservedBalance' in data) || data.reservedBalance == 0)
+        && data.gems == 50
+        && data.netWorth == 10000
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{uid} {
+      allow get: if isOwn(uid);
+      allow list: if false;
+      allow create: if isOwn(uid) && validInitialUser(uid);
+      // Economy fields are immutable from clients; only a bounded FCM token can change.
+      allow update: if isOwn(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken'])
+        && request.resource.data.fcmToken is string
+        && request.resource.data.fcmToken.size() <= 4096;
+      allow delete: if false;
+
+      // Client bid subcollections are intentionally inaccessible.
+      match /{nested=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // Rules are not filters: clients must query ownerId == their authenticated uid.
+    match /properties/{propertyId} {
+      allow get, list: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && validStarterProperty(request.auth.uid, propertyId);
+      allow update, delete: if false;
+    }
+
+    match /assets/{assetId} {
+      allow get, list: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn() && validStarterAsset(request.auth.uid, assetId);
+      allow update, delete: if false;
+    }
+
+    // The client repository filters status == "active"; rules do not filter results.
+    match /auctions/{auctionId} {
+      allow get, list: if signedIn() && resource.data.status == 'active';
+      allow create, update, delete: if false;
+
+      // Client auction bid subcollections are intentionally inaccessible.
+      match /{nested=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // Default deny for every other document path, including economy ledgers.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

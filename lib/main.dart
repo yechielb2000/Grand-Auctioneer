@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show FontFeature;
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +17,7 @@ import 'app/widgets/app_icon.dart';
 import 'app/widgets/game_artwork.dart';
 import 'core/models/user_account.dart';
 import 'features/auth/domain/auth_service.dart';
+import 'features/home/presentation/connected_game_home.dart';
 import 'features/map_properties/presentation/interactive_world_map.dart';
 import 'game_state.dart';
 import 'l10n/app_localization_helpers.dart';
@@ -31,92 +33,240 @@ const _muted = AppColors.textSecondary;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  final rewardedAds = AppConfig.adsEnabled
-      ? RewardedAdService(AppConfig.rewardedAdUnitId)
-      : null;
-  if (rewardedAds != null) await rewardedAds.initialize();
-
-  AppServices? services;
-  if (AppConfig.firebaseEnabled) {
-    await Firebase.initializeApp();
-    services = await AppServices.initialize();
-  }
-
-  runApp(AuctionEmpireApp(services: services, rewardedAds: rewardedAds));
+  runApp(const AuctionEmpireApp());
 }
-
 class AuctionEmpireApp extends StatefulWidget {
-  const AuctionEmpireApp({this.services, this.rewardedAds, super.key});
-
-  final AppServices? services;
-  final RewardedAdService? rewardedAds;
+  const AuctionEmpireApp({super.key});
 
   @override
   State<AuctionEmpireApp> createState() => _AuctionEmpireAppState();
 }
 
 class _AuctionEmpireAppState extends State<AuctionEmpireApp> {
-  late final GameState game;
-  Locale? locale;
+  Locale? _locale;
+  late Future<AppServices> _services = _initializeServices();
+
+  void _retryInitialization() {
+    setState(() => _services = _initializeServices());
+  }
+
+  Future<AppServices> _initializeServices() async {
+    await Firebase.initializeApp();
+    return AppServices.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+        locale: _locale,
+        debugShowCheckedModeBanner: false,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => Directionality(
+          textDirection: AppLocalizations.of(context)!.localeName == 'he' ? TextDirection.rtl : TextDirection.ltr,
+          child: child!,
+        ),
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: AppColors.background,
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.primaryGold,
+            secondary: AppColors.accentGreen,
+            surface: AppColors.surface,
+            error: AppColors.accentRed,
+          ),
+          useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: AppColors.background,
+            foregroundColor: AppColors.textPrimary,
+            surfaceTintColor: Colors.transparent,
+          ),
+          cardTheme: CardThemeData(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+        ),
+        home: AppConfig.firebaseEnabled
+            ? FutureBuilder<AppServices>(
+                future: _services,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _StartupMessage(
+                      title: AppLocalizations.of(context)!.firebaseStartErrorTitle,
+                      message: AppLocalizations.of(context)!.firebaseStartErrorMessage('${snapshot.error}'),
+                      icon: Icons.cloud_off_outlined,
+                      actionLabel: AppLocalizations.of(context)!.retrySetup,
+                      onAction: _retryInitialization,
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return _StartupMessage(
+                      title: AppLocalizations.of(context)!.firebaseConnecting,
+                      message: AppLocalizations.of(context)!.firebasePreparing,
+                      loading: true,
+                    );
+                  }
+                  final services = snapshot.data!;
+                  return _AuthGate(
+                    services: services,
+                    onLocaleChanged: (locale) => setState(() => _locale = locale),
+                  );
+                },
+              )
+            : const _SetupRequiredScreen(),
+      );
+}
+
+class _AuthGate extends StatefulWidget {
+  const _AuthGate({required this.services, required this.onLocaleChanged});
+  final AppServices services;
+  final ValueChanged<Locale> onLocaleChanged;
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  StreamSubscription? _subscription;
+  UserAccount? _account;
+  Object? _authError;
+  bool _loading = true;
+  bool _signingIn = false;
 
   @override
   void initState() {
     super.initState();
-    final remoteConfig = widget.services?.remoteConfig;
-    game = GameState(
-      auctionExtension: Duration(
-        seconds: remoteConfig?.auctionExtensionSeconds ?? 15,
-      ),
-      dailyRewardLimit: remoteConfig?.dailyRewardLimit ?? 5,
+    _watchAuth();
+  }
+
+  void _watchAuth() {
+    _subscription?.cancel();
+    setState(() { _loading = true; _authError = null; });
+    _subscription = widget.services.auth.watchCurrentUser().listen(
+      (account) {
+        if (!mounted) return;
+        setState(() { _account = account; _loading = false; _authError = null; });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() { _authError = error; _loading = false; });
+      },
     );
+  }
+
+  Future<void> _signIn() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() { _signingIn = true; _authError = null; });
+    try {
+      await widget.services.auth.signInWithGoogle();
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _authError = l10n.googleSignInError('${error.message ?? error.code}'));
+    } catch (error) {
+      if (!mounted) return;
+      final text = error.toString();
+      if (!text.toLowerCase().contains('cancel')) setState(() => _authError = text);
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await widget.services.auth.signOut();
+    } catch (error) {
+      if (mounted) setState(() => _authError = AppLocalizations.of(context)!.signOutError('$error'));
+    }
   }
 
   @override
   void dispose() {
-    game.dispose();
-    if (widget.services != null) unawaited(widget.services!.dispose());
+    _subscription?.cancel();
+    unawaited(widget.services.dispose());
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: game,
-        builder: (context, _) => MaterialApp(
-          onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-          locale: locale,
-          debugShowCheckedModeBanner: false,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: ThemeData(
-            brightness: Brightness.dark,
-            scaffoldBackgroundColor: _background,
-            colorScheme: const ColorScheme.dark(
-              primary: _gold,
-              secondary: _green,
-              surface: _surface,
-              error: AppColors.accentRed,
-            ),
-            fontFamily: 'Roboto',
-            useMaterial3: true,
-          ),
-          navigatorObservers: widget.services == null
-              ? const []
-              : [
-                  FirebaseAnalyticsObserver(
-                    analytics: widget.services!.analytics,
-                  ),
-                ],
-          home: GameHome(
-            game: game,
-            services: widget.services,
-            rewardedAds: widget.rewardedAds,
-            onLocaleChanged: (value) => setState(() => locale = value),
-          ),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (_loading) return _StartupMessage(title: l10n.checkingAccount, message: l10n.connectingSecurely, loading: true);
+    if (_authError != null) return _StartupMessage(
+      title: l10n.authNeedsAttention,
+      message: '$_authError',
+      icon: Icons.lock_outline,
+      actionLabel: l10n.retry,
+      onAction: _watchAuth,
+    );
+    if (_account == null) return _SignInScreen(busy: _signingIn, onSignIn: _signIn, error: _authError);
+    return Scaffold(
+      body: SafeArea(child: Column(children: [
+        Expanded(child: ConnectedGameHome(services: widget.services, onLocaleChanged: widget.onLocaleChanged)),
+        Align(alignment: Alignment.centerRight, child: TextButton.icon(
+          onPressed: _signOut,
+          icon: const Icon(Icons.logout_rounded, size: 17),
+          label: Text(l10n.signOut),
+        )),
+      ])),
+    );
+  }
 }
 
+class _SetupRequiredScreen extends StatelessWidget {
+  const _SetupRequiredScreen();
+  @override
+  Widget build(BuildContext context) => _StartupMessage(
+    title: AppLocalizations.of(context)!.firebaseSetupRequired,
+    message: AppLocalizations.of(context)!.firebaseSetupMessage(AppConfig.firebaseNativeSetupMessage, AppConfig.firebaseSetupCommand),
+    icon: Icons.settings_suggest_outlined,
+  );
+}
+
+class _SignInScreen extends StatelessWidget {
+  const _SignInScreen({required this.busy, required this.onSignIn, this.error});
+  final bool busy;
+  final VoidCallback onSignIn;
+  final Object? error;
+  @override
+  Widget build(BuildContext context) => _StartupMessage(
+    title: AppLocalizations.of(context)!.welcomeTitle,
+    message: AppLocalizations.of(context)!.signInWorkspace,
+    icon: Icons.diamond_outlined,
+    actionLabel: busy ? AppLocalizations.of(context)!.signingIn : AppLocalizations.of(context)!.continueWithGoogle,
+    onAction: busy ? null : onSignIn,
+    loading: busy,
+    detail: error?.toString(),
+  );
+}
+
+class _StartupMessage extends StatelessWidget {
+  const _StartupMessage({required this.title, required this.message, this.icon, this.loading = false, this.actionLabel, this.onAction, this.detail});
+  final String title, message;
+  final IconData? icon;
+  final bool loading;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(child: Center(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520),
+      child: Container(
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.outline)),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(width: 54, height: 54, decoration: BoxDecoration(color: AppColors.primaryGold.withValues(alpha: .12), borderRadius: BorderRadius.circular(16)), child: Center(child: loading ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGold)) : Icon(icon ?? Icons.info_outline, color: AppColors.primaryGold, size: 27))),
+          const SizedBox(height: 24),
+          Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 25, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(color: AppColors.textSecondary, height: 1.55)),
+          if (detail != null) ...[const SizedBox(height: 12), SelectableText(detail!, style: const TextStyle(color: AppColors.accentRed, fontSize: 13))],
+          if (actionLabel != null) ...[const SizedBox(height: 24), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onAction, icon: const Icon(Icons.arrow_forward_rounded), label: Text(actionLabel!)))],
+        ]),
+      ),
+    )))),
+  );
+}
 class GameHome extends StatefulWidget {
   const GameHome({
     required this.game,
@@ -151,7 +301,7 @@ class _GameHomeState extends State<GameHome> {
             exception: error,
             stack: stackTrace,
             library: 'Firebase Messaging',
-            context: const ErrorDescription(
+            context: ErrorDescription(
               'while listening for foreground auction notifications',
             ),
           ),
@@ -191,11 +341,12 @@ class _GameHomeState extends State<GameHome> {
     final l10n = AppLocalizations.of(context)!;
     final game = widget.game;
     final pages = [
-      l10n.pageWorld,
+      l10n.navMap,
       l10n.pageAuctionHouse,
       l10n.pageMyAssets,
       l10n.pageBankRewards,
       l10n.navProfile,
+      l10n.preferences,
     ];
     const screenNames = [
       'World',
@@ -203,6 +354,7 @@ class _GameHomeState extends State<GameHome> {
       'My Assets',
       'Bank & Rewards',
       'Profile',
+      'Settings',
     ];
     final screens = [
       MapScreen(game: game),
@@ -212,13 +364,53 @@ class _GameHomeState extends State<GameHome> {
       ProfileScreen(
         game: game,
         authService: widget.services?.auth,
-        onLocaleChanged: widget.onLocaleChanged,
+      ),
+      SettingsScreen(onLocaleChanged: widget.onLocaleChanged),
+    ];
+    void selectDestination(int index) {
+      setState(() => selectedTab = index);
+      final analytics = widget.services?.analytics;
+      if (analytics != null) {
+        unawaited(_logScreenView(analytics, screenNames[index]));
+      }
+    }
+
+    final destinations = [
+      NavigationDestination(
+        icon: AppIcon(assetName: AppAssets.map, color: AppColors.textSecondary, semanticLabel: l10n.navMap),
+        selectedIcon: AppIcon(assetName: AppAssets.map, color: _gold, semanticLabel: l10n.navMap),
+        label: l10n.navMap,
+      ),
+      NavigationDestination(
+        icon: AppIcon(assetName: AppAssets.market, color: AppColors.textSecondary, semanticLabel: l10n.navAuctions),
+        selectedIcon: AppIcon(assetName: AppAssets.market, color: _gold, semanticLabel: l10n.navAuctions),
+        label: l10n.navAuctions,
+      ),
+      NavigationDestination(
+        icon: AppIcon(assetName: AppAssets.warehouse, color: AppColors.textSecondary, semanticLabel: l10n.navAssets),
+        selectedIcon: AppIcon(assetName: AppAssets.warehouse, color: _gold, semanticLabel: l10n.navAssets),
+        label: l10n.navAssets,
+      ),
+      NavigationDestination(
+        icon: AppIcon(assetName: AppAssets.cash, color: AppColors.textSecondary, semanticLabel: l10n.navBank),
+        selectedIcon: AppIcon(assetName: AppAssets.cash, color: _gold, semanticLabel: l10n.navBank),
+        label: l10n.navBank,
+      ),
+      NavigationDestination(
+        icon: AppIcon(assetName: AppAssets.profile, color: AppColors.textSecondary, semanticLabel: l10n.navProfile),
+        selectedIcon: AppIcon(assetName: AppAssets.profile, color: _gold, semanticLabel: l10n.navProfile),
+        label: l10n.navProfile,
+      ),
+      NavigationDestination(
+        icon: const Icon(Icons.settings_outlined),
+        selectedIcon: const Icon(Icons.settings_rounded, color: _gold),
+        label: l10n.preferences,
       ),
     ];
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: _background,
-        titleSpacing: 18,
+        titleSpacing: 20,
         title: Row(
           children: [
             AppIcon(
@@ -228,56 +420,69 @@ class _GameHomeState extends State<GameHome> {
               semanticLabel: l10n.gems,
             ),
             const SizedBox(width: 8),
-            Text(pages[selectedTab], style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text(pages[selectedTab], style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3)),
           ],
         ),
         actions: [
-          CurrencyPill(assetName: AppAssets.cash, color: _gold, text: money(game.cash)),
-          const SizedBox(width: 7),
-          CurrencyPill(assetName: AppAssets.gem, color: _cyan, text: '${game.diamonds}'),
-          const SizedBox(width: 14),
+          IconButton(
+            tooltip: l10n.preferences,
+            onPressed: () => selectDestination(5),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          if (MediaQuery.sizeOf(context).width >= 460) ...[
+            CurrencyPill(assetName: AppAssets.cash, color: _gold, text: money(game.cash)),
+            const SizedBox(width: 8),
+            CurrencyPill(assetName: AppAssets.gem, color: _cyan, text: '${game.diamonds}'),
+            const SizedBox(width: 16),
+          ] else ...[
+            IconButton(tooltip: l10n.availableCash, onPressed: null, icon: AppIcon(assetName: AppAssets.cash, color: _gold, size: 19)),
+            Padding(padding: const EdgeInsets.only(right: 14), child: Text(money(game.cash), style: const TextStyle(color: _gold, fontWeight: FontWeight.w700))),
+          ],
         ],
       ),
-      body: SafeArea(
-        top: false,
-        child: IndexedStack(index: selectedTab, children: screens),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedTab,
-        onDestinationSelected: (index) {
-          setState(() => selectedTab = index);
-          final analytics = widget.services?.analytics;
-          if (analytics != null) {
-            unawaited(_logScreenView(analytics, screenNames[index]));
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 760;
+          final body = Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1180),
+              child: IndexedStack(index: selectedTab, children: screens),
+            ),
+          );
+          if (wide) {
+            return Row(
+              children: [
+                NavigationRail(
+                  selectedIndex: selectedTab,
+                  onDestinationSelected: selectDestination,
+                  labelType: NavigationRailLabelType.all,
+                  destinations: [
+                    for (final destination in destinations)
+                      NavigationRailDestination(
+                        icon: destination.icon,
+                        selectedIcon: destination.selectedIcon,
+                        label: Text(destination.label),
+                      ),
+                  ],
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: body),
+              ],
+            );
           }
+
+          return Column(
+            children: [
+              Expanded(child: body),
+              NavigationBar(
+                selectedIndex: selectedTab,
+                onDestinationSelected: selectDestination,
+                labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+                destinations: destinations,
+              ),
+            ],
+          );
         },
-        destinations: [
-          NavigationDestination(
-            icon: AppIcon(assetName: AppAssets.map, color: AppColors.textSecondary),
-            selectedIcon: AppIcon(assetName: AppAssets.map, color: _gold),
-            label: l10n.navMap,
-          ),
-          NavigationDestination(
-            icon: AppIcon(assetName: AppAssets.market, color: AppColors.textSecondary),
-            selectedIcon: AppIcon(assetName: AppAssets.market, color: _gold),
-            label: l10n.navAuctions,
-          ),
-          NavigationDestination(
-            icon: AppIcon(assetName: AppAssets.warehouse, color: AppColors.textSecondary),
-            selectedIcon: AppIcon(assetName: AppAssets.warehouse, color: _gold),
-            label: l10n.navAssets,
-          ),
-          NavigationDestination(
-            icon: AppIcon(assetName: AppAssets.cash, color: AppColors.textSecondary),
-            selectedIcon: AppIcon(assetName: AppAssets.cash, color: _gold),
-            label: l10n.navBank,
-          ),
-          NavigationDestination(
-            icon: AppIcon(assetName: AppAssets.profile, color: AppColors.textSecondary),
-            selectedIcon: AppIcon(assetName: AppAssets.profile, color: _gold),
-            label: l10n.navProfile,
-          ),
-        ],
       ),
     );
   }
@@ -321,19 +526,19 @@ class CurrencyPill extends StatelessWidget {
 String money(int value) => '\$${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
 
 Widget sectionTitle(String title, {String? trailing}) => Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      padding: const EdgeInsets.only(bottom: 14, top: 12),
       child: Row(children: [
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700))),
+        Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -.2))),
         if (trailing != null) Text(trailing, style: const TextStyle(color: _muted, fontSize: 12)),
       ]),
     );
 
-Widget glassCard({required Widget child, EdgeInsets padding = const EdgeInsets.all(16)}) => Container(
+Widget glassCard({required Widget child, EdgeInsets padding = const EdgeInsets.all(18)}) => Container(
       padding: padding,
       decoration: BoxDecoration(
         color: AppColors.surfaceGlass,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderGlass),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outline),
       ),
       child: child,
     );
@@ -358,7 +563,7 @@ class MapScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 20, MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 28),
       children: [
         Row(
           children: [
@@ -606,6 +811,7 @@ Widget _propertySlotSection(
                     ? Icon(icon, color: _muted)
                     : GameItemArtwork(
                         icon: item.icon,
+                        itemName: item.name,
                         category: item.category,
                         size: 42,
                         semanticLabel: _localizedItemName(l10n, item.name),
@@ -785,7 +991,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
             (filter == null || auction.mode == filter))
         .toList();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 20, MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 28),
       children: [
         Row(children: [
           Expanded(child: Text(l10n.liveMarketplace, style: const TextStyle(color: _muted))),
@@ -856,6 +1062,7 @@ class AuctionCard extends StatelessWidget {
         Row(children: [
           GameItemArtwork(
             icon: auction.icon,
+            itemName: auction.itemName,
             size: 52,
             semanticLabel: _localizedItemName(l10n, auction.itemName),
           ),
@@ -1258,7 +1465,7 @@ class InventoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 20, MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 28),
         children: [
           Row(children: [
             Expanded(child: Text(l10n.itemsReadyToTrade(game.inventory.length), style: const TextStyle(color: _muted))),
@@ -1277,6 +1484,7 @@ class InventoryScreen extends StatelessWidget {
                     child: Row(children: [
                       GameItemArtwork(
                         icon: item.icon,
+                        itemName: item.name,
                         category: item.category,
                         semanticLabel: _localizedItemName(l10n, item.name),
                       ),
@@ -1545,7 +1753,7 @@ class RewardsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 20, MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 28),
         children: [
           glassCard(
             child: Row(children: [
@@ -1569,6 +1777,7 @@ class RewardsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _rewardTile(
+            context: context,
             icon: Icons.account_balance_rounded,
             title: l10n.cashBoost,
             subtitle: l10n.cashRewardSubtitle(game.dailyRewardLimit),
@@ -1580,6 +1789,7 @@ class RewardsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _rewardTile(
+            context: context,
             icon: Icons.diamond_rounded,
             title: l10n.diamondDrop,
             subtitle: l10n.diamondRewardSubtitle(game.dailyRewardLimit),
@@ -1591,6 +1801,7 @@ class RewardsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _rewardTile(
+            context: context,
             icon: Icons.home_work_rounded,
             title: l10n.instantRent,
             subtitle: l10n.instantRentSubtitle,
@@ -1628,6 +1839,7 @@ Widget _balanceColumn(String title, String value, Color color, IconData icon) =>
     ]);
 
 Widget _rewardTile({
+  required BuildContext context,
   required IconData icon,
   required String title,
   required String subtitle,
@@ -1699,21 +1911,17 @@ Future<void> _reward(
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.game,
-    required this.onLocaleChanged,
     this.authService,
     super.key,
   });
   final GameState game;
   final AuthService? authService;
-  final ValueChanged<Locale> onLocaleChanged;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool sound = true;
-  bool haptics = true;
   late final Stream<UserAccount?>? accountStream;
 
   @override
@@ -1725,9 +1933,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final locale = Localizations.localeOf(context);
     return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 20, MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 28),
         children: [
           StreamBuilder<UserAccount?>(
             stream: accountStream,
@@ -1821,37 +2028,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
           const SizedBox(height: 18),
-          sectionTitle(l10n.preferences),
+          sectionTitle(l10n.friends),
           glassCard(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(children: [
-              SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(l10n.soundEffects), secondary: const Icon(Icons.volume_up_rounded, color: _muted), value: sound, onChanged: (value) => setState(() => sound = value)),
-              const Divider(height: 1, color: Color(0xFF2A3040)),
-              SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(l10n.hapticFeedback), secondary: const Icon(Icons.vibration_rounded, color: _muted), value: haptics, onChanged: (value) => setState(() => haptics = value)),
-              const Divider(height: 1, color: Color(0xFF2A3040)),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.translate_rounded, color: _muted),
-                title: Text(l10n.language),
-                trailing: DropdownButton<Locale>(
-                  value: locale,
-                  underline: const SizedBox.shrink(),
-                  items: [
-                    DropdownMenuItem(
-                      value: const Locale('en'),
-                      child: Text(l10n.english),
-                    ),
-                    DropdownMenuItem(
-                      value: const Locale('he'),
-                      child: Text(l10n.hebrew),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) widget.onLocaleChanged(value);
-                  },
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                backgroundColor: Color(0x223FC7D9),
+                child: Icon(Icons.group_rounded, color: _cyan),
               ),
-            ]),
+              title: Text(l10n.friends),
+              subtitle: Text(l10n.noFriendsYet),
+              trailing: IconButton(
+                tooltip: l10n.addFriend,
+                onPressed: () => _showMessage(context, l10n.friendListComingSoon),
+                icon: const Icon(Icons.person_add_alt_1_rounded, color: _cyan),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           glassCard(
@@ -1875,6 +2068,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Center(child: Text(l10n.demoBuild, style: const TextStyle(color: _muted, fontSize: 9, letterSpacing: 1.4))),
         ],
       );
+  }
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({required this.onLocaleChanged, super.key});
+
+  final ValueChanged<Locale> onLocaleChanged;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool sound = true;
+  bool haptics = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context);
+    return ListView(
+      padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 20, MediaQuery.sizeOf(context).width >= 760 ? 32 : 18, 28),
+      children: [
+        sectionTitle(l10n.preferences),
+        glassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Column(children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l10n.soundEffects),
+              secondary: const Icon(Icons.volume_up_rounded, color: _muted),
+              value: sound,
+              onChanged: (value) => setState(() => sound = value),
+            ),
+            const Divider(height: 1, color: Color(0xFF2A3040)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l10n.hapticFeedback),
+              secondary: const Icon(Icons.vibration_rounded, color: _muted),
+              value: haptics,
+              onChanged: (value) => setState(() => haptics = value),
+            ),
+            const Divider(height: 1, color: Color(0xFF2A3040)),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.translate_rounded, color: _muted),
+              title: Text(l10n.language),
+              trailing: DropdownButton<Locale>(
+                value: locale,
+                underline: const SizedBox.shrink(),
+                items: [
+                  DropdownMenuItem(value: const Locale('en'), child: Text(l10n.english)),
+                  DropdownMenuItem(value: const Locale('he'), child: Text(l10n.hebrew)),
+                ],
+                onChanged: (value) {
+                  if (value != null) widget.onLocaleChanged(value);
+                },
+              ),
+            ),
+          ]),
+        ),
+      ],
+    );
   }
 }
 

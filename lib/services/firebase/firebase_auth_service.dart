@@ -4,18 +4,22 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/models/user_account.dart';
 import '../../features/auth/domain/auth_service.dart';
 import '../../features/auth/domain/user_repository.dart';
+import '../../features/auth/domain/starter_content_repository.dart';
 
 class FirebaseGoogleAuthService implements AuthService {
   FirebaseGoogleAuthService({
     required FirebaseAuth auth,
     required UserRepository users,
+    required StarterContentRepository starterContent,
     GoogleSignIn? googleSignIn,
   })  : _auth = auth,
         _users = users,
+        _starterContent = starterContent,
         _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: const ['email']);
 
   final FirebaseAuth _auth;
   final UserRepository _users;
+  final StarterContentRepository _starterContent;
   final GoogleSignIn _googleSignIn;
 
   @override
@@ -24,7 +28,9 @@ class FirebaseGoogleAuthService implements AuthService {
 
   Future<UserAccount?> _loadAccount(User? user) async {
     if (user == null) return null;
-    return _users.getOrCreate(_newAccount(user));
+    final account = await _users.getOrCreate(_newAccount(user));
+    await _starterContent.provisionFor(user.uid);
+    return account;
   }
 
   @override
@@ -44,6 +50,7 @@ class FirebaseGoogleAuthService implements AuthService {
     }
 
     final profile = await _users.getOrCreate(_newAccount(firebaseUser));
+    await _starterContent.provisionFor(firebaseUser.uid);
     return profile;
   }
 

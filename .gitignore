@@ -10,3 +10,11 @@
 /ios/Flutter/.last_build_id
 /ios/Pods/
 /ios/.symlinks/
+
+/tests-apks/
+
+/lib/l10n/generated/
+
+/android/build/
+
+*.log

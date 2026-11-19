@@ -6,6 +6,10 @@
   "navAssets": "Assets",
   "navBank": "Bank",
   "navProfile": "Profile",
+  "friends": "Friends",
+  "noFriendsYet": "Your friends list will appear here.",
+  "addFriend": "Add friend",
+  "friendListComingSoon": "Friend invites are coming soon.",
   "pageWorld": "World",
   "pageAuctionHouse": "Auction House",
   "pageMyAssets": "My Assets",
@@ -45,8 +49,12 @@
   "starterPropertyDetails": "Your starter property · {furnitureSlots} furniture · {vehicleSlots} vehicle slots",
   "@starterPropertyDetails": {
     "placeholders": {
-      "furnitureSlots": {"type": "int"},
-      "vehicleSlots": {"type": "int"}
+      "furnitureSlots": {
+        "type": "int"
+      },
+      "vehicleSlots": {
+        "type": "int"
+      }
     }
   },
   "passiveRent": "PASSIVE RENT",
@@ -55,10 +63,18 @@
   "placedSlotsUsed": "{furnitureCount}/{furnitureSlots} furniture · {vehicleCount}/{vehicleSlots} vehicle slots used",
   "@placedSlotsUsed": {
     "placeholders": {
-      "furnitureCount": {"type": "int"},
-      "furnitureSlots": {"type": "int"},
-      "vehicleCount": {"type": "int"},
-      "vehicleSlots": {"type": "int"}
+      "furnitureCount": {
+        "type": "int"
+      },
+      "furnitureSlots": {
+        "type": "int"
+      },
+      "vehicleCount": {
+        "type": "int"
+      },
+      "vehicleSlots": {
+        "type": "int"
+      }
     }
   },
   "openPropertySlots": "Open property slots",
@@ -67,17 +83,35 @@
   "furniture": "Furniture",
   "vehicles": "Vehicles",
   "emptySlot": "Empty {category} slot",
-  "@emptySlot": {"placeholders": {"category": {}}},
+  "@emptySlot": {
+    "placeholders": {
+      "category": {}
+    }
+  },
   "assignFromWarehouse": "Assign from your warehouse",
   "itemRarityCategory": "{rarity} · {category}",
-  "@itemRarityCategory": {"placeholders": {"rarity": {}, "category": {}}},
+  "@itemRarityCategory": {
+    "placeholders": {
+      "rarity": {},
+      "category": {}
+    }
+  },
   "noMatchingItems": "No matching items in your warehouse.",
   "chooseCategoryItem": "Choose {category} item",
-  "@chooseCategoryItem": {"placeholders": {"category": {}}},
+  "@chooseCategoryItem": {
+    "placeholders": {
+      "category": {}
+    }
+  },
   "itemAssigned": "Item assigned to your property.",
   "noMatchingSlot": "No matching property slot is available.",
   "placedItemDescription": "{rarity} {category} currently placed in your property.",
-  "@placedItemDescription": {"placeholders": {"rarity": {}, "category": {}}},
+  "@placedItemDescription": {
+    "placeholders": {
+      "rarity": {},
+      "category": {}
+    }
+  },
   "keepPlaced": "Keep placed",
   "returnToWarehouse": "Return to warehouse",
   "liveMarketplace": "Live marketplace",
@@ -85,7 +119,13 @@
   "allModes": "All modes",
   "endingSoon": "Ending soon",
   "listingCount": "{count, plural, =1{1 listing} other{{count} listings}}",
-  "@listingCount": {"placeholders": {"count": {"type": "num"}}},
+  "@listingCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "noAuctionsForFilter": "No active auctions for this filter.",
   "listItemOrProperty": "List an item or property",
   "turnAssetsIntoCash": "Turn your assets into cash",
@@ -98,7 +138,13 @@
   "startingPrice": "STARTING PRICE",
   "currentBid": "CURRENT BID",
   "bidCount": "{count, plural, =1{1 bid} other{{count} bids}}",
-  "@bidCount": {"placeholders": {"count": {"type": "num"}}},
+  "@bidCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "ended": "ENDED",
   "yourListing": "YOUR LISTING",
   "bidPlacedLabel": "BID PLACED",
@@ -107,43 +153,99 @@
   "notEnoughCashForClaim": "Not enough cash to claim this item.",
   "sealedBidsStayHidden": "Bids stay sealed until the timer expires.",
   "yourSealedBid": "Your sealed bid is {amount}. All bids reveal when the timer expires.",
-  "@yourSealedBid": {"placeholders": {"amount": {}}},
+  "@yourSealedBid": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "revealedBids": "Revealed bids: {bids}",
-  "@revealedBids": {"placeholders": {"bids": {}}},
+  "@revealedBids": {
+    "placeholders": {
+      "bids": {}
+    }
+  },
   "youWonFor": "You won for {amount}.",
-  "@youWonFor": {"placeholders": {"amount": {}}},
+  "@youWonFor": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "noBidsPlaced": "No bids were placed.",
   "auctionEndedWinningBid": "Auction ended · winning bid {amount}.",
-  "@auctionEndedWinningBid": {"placeholders": {"amount": {}}},
+  "@auctionEndedWinningBid": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "listingEndedReturned": "Listing ended. The item or property was returned to your assets.",
   "auctionEnded": "Auction ended.",
   "youWon": "YOU WON!",
   "winningPrice": "Winning price · {amount}",
-  "@winningPrice": {"placeholders": {"amount": {}}},
+  "@winningPrice": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "continueLabel": "Continue",
   "endsIn": "ENDS IN",
   "hoursMinutes": "{hours}h {minutes}",
-  "@hoursMinutes": {"placeholders": {"hours": {"type": "int"}, "minutes": {}}},
+  "@hoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {}
+    }
+  },
   "minutesSeconds": "{minutes}:{seconds}",
-  "@minutesSeconds": {"placeholders": {"minutes": {}, "seconds": {}}},
+  "@minutesSeconds": {
+    "placeholders": {
+      "minutes": {},
+      "seconds": {}
+    }
+  },
   "bidPlaced": "Your bid was placed.",
   "bidRejected": "Bid was rejected. Check your balance and minimum bid.",
   "submitSealedBid": "Submit sealed bid",
   "placeYourBid": "Place your bid",
   "minimumBalance": "Minimum {minimum} · balance {balance}",
-  "@minimumBalance": {"placeholders": {"minimum": {}, "balance": {}}},
+  "@minimumBalance": {
+    "placeholders": {
+      "minimum": {},
+      "balance": {}
+    }
+  },
   "sealedBidHint": "Your amount remains hidden from the marketplace until the auction ends.",
   "yourBid": "Your bid",
   "cancel": "Cancel",
   "sealBid": "Seal bid",
   "confirmBid": "Confirm bid",
   "itemsReadyToTrade": "{count, plural, =1{1 item ready to trade} other{{count} items ready to trade}}",
-  "@itemsReadyToTrade": {"placeholders": {"count": {"type": "num"}}},
+  "@itemsReadyToTrade": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "slotCount": "{used} / {total} SLOTS",
-  "@slotCount": {"placeholders": {"used": {"type": "int"}, "total": {"type": "int"}}},
+  "@slotCount": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "warehouseEmpty": "Your warehouse is empty. Win an auction or collect a reward to get started.",
   "estimatedValue": "Est. value {amount}",
-  "@estimatedValue": {"placeholders": {"amount": {}}},
+  "@estimatedValue": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "removeFromStudio": "Remove from studio",
   "placeInStudio": "Place in studio",
   "listForAuction": "List for auction",
@@ -152,13 +254,21 @@
   "slotsInUse": "All property display slots are in use.",
   "removedFromStudio": "Removed from your studio.",
   "soldFor": "Sold for {amount}.",
-  "@soldFor": {"placeholders": {"amount": {}}},
+  "@soldFor": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "removeBeforeSelling": "Remove this item from your studio before selling.",
   "propertyPrestigeHint": "Display rare items in your property to increase prestige and rental income.",
   "removeBeforeListingProperty": "Remove displayed items before listing your property.",
   "nothingToList": "No available items or properties to list.",
   "auctionCreated": "Your {mode} auction is live.",
-  "@auctionCreated": {"placeholders": {"mode": {}}},
+  "@auctionCreated": {
+    "placeholders": {
+      "mode": {}
+    }
+  },
   "couldNotCreateListing": "Could not create listing.",
   "createAuction": "Create auction",
   "item": "Item",
@@ -175,15 +285,33 @@
   "diamonds": "DIAMONDS",
   "earnRewards": "Earn rewards",
   "claimsLeft": "{count, plural, =1{1 claim left this session} other{{count} claims left this session}}",
-  "@claimsLeft": {"placeholders": {"count": {"type": "num"}}},
+  "@claimsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "simulateReward": "Choose a reward to simulate a completed rewarded video.",
   "watchReward": "Watch a rewarded video to claim cash or diamonds.",
   "cashBoost": "Cash boost",
   "cashRewardSubtitle": "+$2,500 cash · up to {count} per session",
-  "@cashRewardSubtitle": {"placeholders": {"count": {"type": "int"}}},
+  "@cashRewardSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "diamondDrop": "Diamond drop",
   "diamondRewardSubtitle": "+5 diamonds · up to {count} per session",
-  "@diamondRewardSubtitle": {"placeholders": {"count": {"type": "int"}}},
+  "@diamondRewardSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "instantRent": "Instant rent",
   "instantRentSubtitle": "+$420 from your studio",
   "limit": "Limit",
@@ -192,19 +320,27 @@
   "demoRewardsNotice": "Rewards are simulated in this demo. Production rewards must be granted only after Google Mobile Ads confirms the earned-reward callback.",
   "realRewardsNotice": "Cash and diamond rewards are applied only after the ad reports an earned reward. Client-side reward claims are not cheat-resistant.",
   "adLoadError": "Could not load or show ad: {error}",
-  "@adLoadError": {"placeholders": {"error": {}}},
+  "@adLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "watchFullAd": "Watch the full ad to earn this reward.",
   "rewardClaimed": "Reward claimed.",
   "dailyRewardLimitReached": "Daily reward limit reached.",
   "empireBuilder": "Empire Builder",
   "demoProfile": "Demo profile · local only",
   "signInToSync": "Sign in to sync your Google profile",
-  "netWorth": "NET WORTH",
+  "netWorth": "Net worth",
   "properties": "PROPERTIES",
   "items": "ITEMS",
   "connectGoogle": "Connect Google account",
   "couldNotLoadAccount": "Could not load account: {error}",
-  "@couldNotLoadAccount": {"placeholders": {"error": {}}},
+  "@couldNotLoadAccount": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "syncWithFirebase": "Sync a profile with Firebase",
   "signIn": "Sign in",
   "signOut": "Sign out",
@@ -213,7 +349,7 @@
   "hapticFeedback": "Haptic feedback",
   "language": "Language",
   "english": "English",
-  "hebrew": "עברית",
+  "hebrew": "Hebrew",
   "howToPlay": "How to play",
   "learnToTrade": "Learn to furnish and trade",
   "buildEmpire": "Build your empire",
@@ -221,7 +357,11 @@
   "letsGo": "Let’s go",
   "demoBuild": "AUCTION EMPIRE · DEMO BUILD",
   "accountActionFailed": "Account action failed: {error}",
-  "@accountActionFailed": {"placeholders": {"error": {}}},
+  "@accountActionFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "mapSharedWorld": "SHARED WORLD",
   "mapPropertyInterior": "PROPERTY INTERIOR",
   "mapHome": "Home",
@@ -233,9 +373,21 @@
   "mapCityCenter": "CITY CENTER",
   "mapOwnerYou": "you",
   "mapDistrictCount": "{count, plural, =1{1 district} other{{count} districts}}",
-  "@mapDistrictCount": {"placeholders": {"count": {"type": "num"}}},
+  "@mapDistrictCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "mapPropertiesCount": "{count, plural, =1{1 property} other{{count} properties}}",
-  "@mapPropertiesCount": {"placeholders": {"count": {"type": "num"}}},
+  "@mapPropertiesCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "mapStarterHome": "Starter home",
   "mapCornerMarket": "The Corner Market",
   "mapGalleryHouse": "Gallery House",
@@ -243,9 +395,18 @@
   "mapCivicOffices": "Civic Offices",
   "mapSculptureGarden": "Sculpture Garden",
   "mapOwnedBy": "Owned by {owner}",
-  "@mapOwnedBy": {"placeholders": {"owner": {}}},
+  "@mapOwnedBy": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
   "mapSiteSemantics": "{title}, owned by {owner}",
-  "@mapSiteSemantics": {"placeholders": {"title": {}, "owner": {}}},
+  "@mapSiteSemantics": {
+    "placeholders": {
+      "title": {},
+      "owner": {}
+    }
+  },
   "mapExploreLandmark": "Explore landmark",
   "mapEnterProperty": "Enter property",
   "mapAccessRequested": "Access requested",
@@ -255,9 +416,18 @@
   "mapOwnerControlsAccess": "The owner controls interior access",
   "mapPublicLandmark": "Public landmark · open to visitors",
   "mapSharedPlace": "A shared public place · maintained by {owner}.",
-  "@mapSharedPlace": {"placeholders": {"owner": {}}},
+  "@mapSharedPlace": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
   "roomTitle": "{title} · {roomType}",
-  "@roomTitle": {"placeholders": {"title": {}, "roomType": {}}},
+  "@roomTitle": {
+    "placeholders": {
+      "title": {},
+      "roomType": {}
+    }
+  },
   "roomHome": "Your home",
   "roomGuest": "Guest view",
   "roomHomeDescription": "Your placed items, viewed from above. Tap an item to inspect it.",
@@ -267,7 +437,9 @@
     "placeholders": {
       "rarity": {},
       "category": {},
-      "value": {"type": "int"}
+      "value": {
+        "type": "int"
+      }
     }
   },
   "roomOwnerAsset": "Owner’s displayed asset",
@@ -279,5 +451,143 @@
   "close": "Close",
   "mapChooseRegionHint": "Choose a region to discover its city and player-owned places.",
   "mapChooseCityHint": "Choose a city to explore its streets and landmarks.",
-  "mapSelectBuildingHint": "Select a building to see its owner and access options."
+  "mapSelectBuildingHint": "Select a building to see its owner and access options.",
+  "firebaseStartErrorTitle": "Firebase could not start",
+  "firebaseStartErrorMessage": "Check your Firebase project setup and native app configuration, then restart the app. Details: {error}",
+  "retrySetup": "Retry setup",
+  "firebaseConnecting": "Connecting to Firebase",
+  "firebasePreparing": "Preparing authentication and live services?",
+  "checkingAccount": "Checking your account",
+  "connectingSecurely": "Connecting securely?",
+  "authNeedsAttention": "Authentication needs attention",
+  "retry": "Retry",
+  "googleSignInError": "{error} Check that Google sign-in is enabled in Firebase Authentication.",
+  "signOutError": "Could not sign out: {error}",
+  "firebaseSetupRequired": "Firebase setup required",
+  "firebaseSetupMessage": "This app needs Firebase to provide accounts and live game data. {nativeMessage} Then launch with {command}. No demo account or seeded game is started.",
+  "welcomeTitle": "Welcome to Grand Auctioneer",
+  "signInWorkspace": "Sign in with Google to open your live player workspace.",
+  "signingIn": "Signing in?",
+  "continueWithGoogle": "Continue with Google",
+  "@firebaseStartErrorMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@googleSignInError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@signOutError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@firebaseSetupMessage": {
+    "placeholders": {
+      "nativeMessage": {},
+      "command": {}
+    }
+  },
+  "workspaceTitle": "PLAYER WORKSPACE",
+  "settings": "Settings",
+  "propertyMap": "Property map",
+  "propertyMapSubtitle": "Your saved properties and their recorded locations.",
+  "missingCoordinates": "{count, plural, =1{1 property has} other{{count} properties have}} no saved coordinates and cannot be placed on this map.",
+  "noOwnedProperties": "No owned properties are recorded yet.",
+  "activeAuctions": "Active auctions",
+  "auctionsSubtitle": "Live records from the auction stream. Bid actions are unavailable.",
+  "noAuctions": "No active auction records.",
+  "auctionLabel": "Auction {id}",
+  "itemReference": "Item reference: {id}",
+  "auctionTypeState": "Type: {type} ? State: {state}",
+  "auctionPrices": "Starting {starting} ? Current {current}",
+  "auctionEnds": "Ends {date}",
+  "inventory": "Inventory",
+  "inventorySubtitle": "Owner scoped assets from your account.",
+  "noAssets": "No owned assets are recorded yet.",
+  "estimated": "Est. {value}",
+  "assetId": "Asset {id}",
+  "bankRewards": "Bank / Rewards",
+  "bankSubtitle": "Account values are displayed from the live account stream.",
+  "reservedCash": "Reserved cash",
+  "rewards": "Rewards",
+  "rewardsReadOnly": "Reward claims are read-only and unavailable.",
+  "claimRewards": "Claim rewards",
+  "economyReadOnly": "Economy changes are disabled: client rules deny writes and no trusted transaction backend is connected.",
+  "profile": "Profile",
+  "profileSubtitle": "Identity and account data from the authenticated account stream.",
+  "accountId": "Account {id}",
+  "memberSince": "Member since",
+  "settingsSubtitle": "Choose the workspace language.",
+  "liveLoadError": "Could not load live data: {error}",
+  "loadingRecords": "Loading live records...",
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out",
+  "resetMap": "Fit / reset map",
+  "noLocatedProperties": "No located properties to plot.",
+  "gridCoordinates": "Grid {x}, {y}",
+  "realEstate": "Real Estate",
+  "auctionItemSemantics": "Auction item reference",
+  "@missingCoordinates": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "@auctionLabel": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@itemReference": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@auctionTypeState": {
+    "placeholders": {
+      "type": {},
+      "state": {}
+    }
+  },
+  "@auctionPrices": {
+    "placeholders": {
+      "starting": {},
+      "current": {}
+    }
+  },
+  "@auctionEnds": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "@estimated": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "@assetId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@accountId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@liveLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@gridCoordinates": {
+    "placeholders": {
+      "x": {},
+      "y": {}
+    }
+  }
 }

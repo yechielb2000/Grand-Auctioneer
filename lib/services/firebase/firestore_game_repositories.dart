@@ -7,6 +7,7 @@ import '../../core/models/property.dart';
 import '../../core/models/user_account.dart';
 import '../../core/utils/dutch_auction_price.dart';
 import '../../features/auth/domain/user_repository.dart';
+import '../../features/auth/domain/starter_content_repository.dart';
 import '../../features/auction/domain/auction_repository.dart';
 import '../../features/inventory/domain/asset_repository.dart';
 import '../../features/map_properties/domain/property_repository.dart';
@@ -95,6 +96,85 @@ class FirestoreAssetRepository implements AssetRepository {
       .doc(item.id)
       .set(item.toMap(), SetOptions(merge: true));
 }
+
+/// Creates one fixed starter kit with deterministic records only when absent.
+/// The PRD's randomized draw and trading are not implemented yet.
+class FirestoreStarterContentRepository implements StarterContentRepository {
+  FirestoreStarterContentRepository(this._firestore);
+
+  final FirebaseFirestore _firestore;
+
+  @override
+  Future<void> provisionFor(String uid) async {
+    final property = _starterProperty(uid);
+    final assets = _starterAssets(uid);
+    final propertyRef = _firestore.collection('properties').doc(property.id);
+    final assetRefs = assets
+        .map((asset) => _firestore.collection('assets').doc(asset.id))
+        .toList(growable: false);
+
+    await _firestore.runTransaction((transaction) async {
+      final propertySnapshot = await transaction.get(propertyRef);
+      final assetSnapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final reference in assetRefs) {
+        assetSnapshots.add(await transaction.get(reference));
+      }
+
+      if (!propertySnapshot.exists) {
+        transaction.set(propertyRef, property.toMap());
+      }
+      for (var index = 0; index < assets.length; index++) {
+        if (!assetSnapshots[index].exists) {
+          transaction.set(assetRefs[index], assets[index].toMap());
+        }
+      }
+    });
+  }
+}
+
+Property _starterProperty(String uid) => Property(
+      id: 'starter_property_$uid',
+      ownerId: uid,
+      name: 'Small Studio Apartment',
+      type: PropertyType.apartment,
+      coordinates: const PropertyCoordinates.grid(x: 0, y: 0),
+      capacity: const PropertyCapacity(furnitureSlots: 2, vehicleSlots: 0),
+      placedItemIds: const [],
+      isListedForAuction: false,
+    );
+
+List<AssetItem> _starterAssets(String uid) => [
+      AssetItem(
+        id: 'starter_asset_${uid}_vintage_velvet_sofa',
+        ownerId: uid,
+        name: 'Vintage Velvet Sofa',
+        category: AssetCategory.furniture,
+        rarity: AssetRarity.rare,
+        estimatedValue: 1850,
+        currentLocationPropertyId: null,
+        iconPath: 'builtin:game-item/vintage-velvet-sofa',
+      ),
+      AssetItem(
+        id: 'starter_asset_${uid}_city_scooter',
+        ownerId: uid,
+        name: 'Classic City Scooter',
+        category: AssetCategory.vehicle,
+        rarity: AssetRarity.common,
+        estimatedValue: 2400,
+        currentLocationPropertyId: null,
+        iconPath: 'builtin:game-item/classic-city-scooter',
+      ),
+      AssetItem(
+        id: 'starter_asset_${uid}_retro_arcade_cabinet',
+        ownerId: uid,
+        name: 'Retro Arcade Cabinet',
+        category: AssetCategory.collectible,
+        rarity: AssetRarity.epic,
+        estimatedValue: 3200,
+        currentLocationPropertyId: null,
+        iconPath: 'builtin:game-item/retro-arcade-cabinet',
+      ),
+    ];
 
 class FirestoreAuctionRepository implements AuctionRepository {
   FirestoreAuctionRepository(this._firestore);

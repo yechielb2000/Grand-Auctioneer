@@ -6,6 +6,10 @@
   "navAssets": "נכסים",
   "navBank": "בנק",
   "navProfile": "פרופיל",
+  "friends": "חברים",
+  "noFriendsYet": "רשימת החברים שלך תופיע כאן.",
+  "addFriend": "הוסף חבר",
+  "friendListComingSoon": "הזמנות חברים יגיעו בקרוב.",
   "pageWorld": "עולם",
   "pageAuctionHouse": "בית המכירות",
   "pageMyAssets": "הנכסים שלי",
@@ -37,12 +41,20 @@
   "rarityUncommon": "לא נפוץ",
   "rarityEpic": "אגדי",
   "ownedProperty": "{label}, נכס בבעלותך",
-  "@ownedProperty": {"placeholders": {"label": {}}},
+  "@ownedProperty": {
+    "placeholders": {
+      "label": {}
+    }
+  },
   "starterPropertyDetails": "נכס התחלתי · {furnitureSlots} מקומות לריהוט · {vehicleSlots} מקומות לכלי רכב",
   "@starterPropertyDetails": {
     "placeholders": {
-      "furnitureSlots": {"type": "int"},
-      "vehicleSlots": {"type": "int"}
+      "furnitureSlots": {
+        "type": "int"
+      },
+      "vehicleSlots": {
+        "type": "int"
+      }
     }
   },
   "passiveRent": "הכנסה משכירות",
@@ -51,10 +63,18 @@
   "placedSlotsUsed": "{furnitureCount}/{furnitureSlots} רהיטים · {vehicleCount}/{vehicleSlots} מקומות לכלי רכב בשימוש",
   "@placedSlotsUsed": {
     "placeholders": {
-      "furnitureCount": {"type": "int"},
-      "furnitureSlots": {"type": "int"},
-      "vehicleCount": {"type": "int"},
-      "vehicleSlots": {"type": "int"}
+      "furnitureCount": {
+        "type": "int"
+      },
+      "furnitureSlots": {
+        "type": "int"
+      },
+      "vehicleCount": {
+        "type": "int"
+      },
+      "vehicleSlots": {
+        "type": "int"
+      }
     }
   },
   "openPropertySlots": "פתיחת מקומות בנכס",
@@ -63,17 +83,35 @@
   "furniture": "ריהוט",
   "vehicles": "כלי רכב",
   "emptySlot": "מקום ריק ל{category}",
-  "@emptySlot": {"placeholders": {"category": {}}},
+  "@emptySlot": {
+    "placeholders": {
+      "category": {}
+    }
+  },
   "assignFromWarehouse": "הוספה מהמחסן",
   "itemRarityCategory": "{rarity} · {category}",
-  "@itemRarityCategory": {"placeholders": {"rarity": {}, "category": {}}},
+  "@itemRarityCategory": {
+    "placeholders": {
+      "rarity": {},
+      "category": {}
+    }
+  },
   "noMatchingItems": "אין פריטים מתאימים במחסן.",
   "chooseCategoryItem": "בחירת פריט מסוג {category}",
-  "@chooseCategoryItem": {"placeholders": {"category": {}}},
+  "@chooseCategoryItem": {
+    "placeholders": {
+      "category": {}
+    }
+  },
   "itemAssigned": "הפריט הוצב בנכס.",
   "noMatchingSlot": "אין מקום פנוי מתאים בנכס.",
   "placedItemDescription": "{rarity} מסוג {category} שמוצב כרגע בנכס.",
-  "@placedItemDescription": {"placeholders": {"rarity": {}, "category": {}}},
+  "@placedItemDescription": {
+    "placeholders": {
+      "rarity": {},
+      "category": {}
+    }
+  },
   "keepPlaced": "השארה במקומו",
   "returnToWarehouse": "החזרה למחסן",
   "liveMarketplace": "שוק פעיל",
@@ -81,7 +119,13 @@
   "allModes": "כל סוגי המכירות",
   "endingSoon": "מסתיימות בקרוב",
   "listingCount": "{count, plural, =0{אין פריטים למכירה} =1{פריט אחד למכירה} =2{2 פריטים למכירה} other{{count} פריטים למכירה}}",
-  "@listingCount": {"placeholders": {"count": {"type": "num"}}},
+  "@listingCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "noAuctionsForFilter": "אין מכירות פעילות בסינון הזה.",
   "listItemOrProperty": "הצעת פריט או נכס למכירה",
   "turnAssetsIntoCash": "הפכו נכסים למזומן",
@@ -94,7 +138,13 @@
   "startingPrice": "מחיר התחלתי",
   "currentBid": "הצעה נוכחית",
   "bidCount": "{count, plural, =1{הצעה אחת} =2{2 הצעות} other{{count} הצעות}}",
-  "@bidCount": {"placeholders": {"count": {"type": "num"}}},
+  "@bidCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "ended": "הסתיימה",
   "yourListing": "המודעה שלך",
   "bidPlacedLabel": "הוגשה הצעה",
@@ -103,43 +153,99 @@
   "notEnoughCashForClaim": "אין מספיק כסף לרכישת הפריט.",
   "sealedBidsStayHidden": "ההצעות יישארו חסויות עד לסיום הזמן.",
   "yourSealedBid": "ההצעה החסויה שלך היא {amount}. כל ההצעות ייחשפו בסיום הזמן.",
-  "@yourSealedBid": {"placeholders": {"amount": {}}},
+  "@yourSealedBid": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "revealedBids": "הצעות שנחשפו: {bids}",
-  "@revealedBids": {"placeholders": {"bids": {}}},
+  "@revealedBids": {
+    "placeholders": {
+      "bids": {}
+    }
+  },
   "youWonFor": "זכית במחיר {amount}.",
-  "@youWonFor": {"placeholders": {"amount": {}}},
+  "@youWonFor": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "noBidsPlaced": "לא הוגשו הצעות.",
   "auctionEndedWinningBid": "המכירה הסתיימה · ההצעה הזוכה {amount}.",
-  "@auctionEndedWinningBid": {"placeholders": {"amount": {}}},
+  "@auctionEndedWinningBid": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "listingEndedReturned": "המכירה הסתיימה. הפריט או הנכס הוחזרו לנכסים שלך.",
   "auctionEnded": "המכירה הסתיימה.",
   "youWon": "זכית!",
   "winningPrice": "מחיר הזכייה · {amount}",
-  "@winningPrice": {"placeholders": {"amount": {}}},
+  "@winningPrice": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "continueLabel": "המשך",
   "endsIn": "מסתיימת בעוד",
   "hoursMinutes": "{hours} שע׳ {minutes}",
-  "@hoursMinutes": {"placeholders": {"hours": {"type": "int"}, "minutes": {}}},
+  "@hoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {}
+    }
+  },
   "minutesSeconds": "{minutes}:{seconds}",
-  "@minutesSeconds": {"placeholders": {"minutes": {}, "seconds": {}}},
+  "@minutesSeconds": {
+    "placeholders": {
+      "minutes": {},
+      "seconds": {}
+    }
+  },
   "bidPlaced": "ההצעה שלך הוגשה.",
   "bidRejected": "ההצעה נדחתה. בדקו את היתרה ואת סכום ההצעה המזערי.",
   "submitSealedBid": "הגשת הצעה חסויה",
   "placeYourBid": "הגשת הצעה",
   "minimumBalance": "מינימום {minimum} · יתרה {balance}",
-  "@minimumBalance": {"placeholders": {"minimum": {}, "balance": {}}},
+  "@minimumBalance": {
+    "placeholders": {
+      "minimum": {},
+      "balance": {}
+    }
+  },
   "sealedBidHint": "הסכום שלך יישאר חסוי עד לסיום המכירה.",
   "yourBid": "ההצעה שלך",
   "cancel": "ביטול",
   "sealBid": "אישור הצעה חסויה",
   "confirmBid": "אישור הצעה",
   "itemsReadyToTrade": "{count, plural, =1{פריט אחד זמין למסחר} =2{2 פריטים זמינים למסחר} other{{count} פריטים זמינים למסחר}}",
-  "@itemsReadyToTrade": {"placeholders": {"count": {"type": "num"}}},
+  "@itemsReadyToTrade": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "slotCount": "{used} / {total} מקומות",
-  "@slotCount": {"placeholders": {"used": {"type": "int"}, "total": {"type": "int"}}},
+  "@slotCount": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "warehouseEmpty": "המחסן שלך ריק. זכו במכירה או אספו פרס כדי להתחיל.",
   "estimatedValue": "שווי משוער {amount}",
-  "@estimatedValue": {"placeholders": {"amount": {}}},
+  "@estimatedValue": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "removeFromStudio": "הסרה מהסטודיו",
   "placeInStudio": "הצבה בסטודיו",
   "listForAuction": "הצעה למכירה",
@@ -148,13 +254,21 @@
   "slotsInUse": "כל מקומות התצוגה בנכס תפוסים.",
   "removedFromStudio": "הפריט הוסר מהסטודיו.",
   "soldFor": "נמכר תמורת {amount}.",
-  "@soldFor": {"placeholders": {"amount": {}}},
+  "@soldFor": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
   "removeBeforeSelling": "הסירו את הפריט מהסטודיו לפני המכירה.",
   "propertyPrestigeHint": "הציגו פריטים נדירים בנכס כדי להגדיל את היוקרה וההכנסה משכירות.",
   "removeBeforeListingProperty": "הסירו פריטים שמוצגים בנכס לפני הצעתו למכירה.",
   "nothingToList": "אין פריטים או נכסים זמינים למכירה.",
   "auctionCreated": "המכירה מסוג {mode} פעילה.",
-  "@auctionCreated": {"placeholders": {"mode": {}}},
+  "@auctionCreated": {
+    "placeholders": {
+      "mode": {}
+    }
+  },
   "couldNotCreateListing": "לא ניתן ליצור את המודעה.",
   "createAuction": "יצירת מכירה",
   "item": "פריט",
@@ -171,15 +285,33 @@
   "diamonds": "יהלומים",
   "earnRewards": "צבירת פרסים",
   "claimsLeft": "{count, plural, =1{נותר מימוש אחד בהפעלה זו} =2{נותרו שני מימושים בהפעלה זו} other{נותרו {count} מימושים בהפעלה זו}}",
-  "@claimsLeft": {"placeholders": {"count": {"type": "num"}}},
+  "@claimsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "simulateReward": "בחרו פרס כדי לדמות צפייה מלאה בסרטון.",
   "watchReward": "צפו בסרטון פרס כדי לקבל כסף או יהלומים.",
   "cashBoost": "תוספת מזומן",
   "cashRewardSubtitle": "‎+$2,500 מזומן · עד {count} להפעלה",
-  "@cashRewardSubtitle": {"placeholders": {"count": {"type": "int"}}},
+  "@cashRewardSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "diamondDrop": "חבילת יהלומים",
   "diamondRewardSubtitle": "‎+5 יהלומים · עד {count} להפעלה",
-  "@diamondRewardSubtitle": {"placeholders": {"count": {"type": "int"}}},
+  "@diamondRewardSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "instantRent": "שכר דירה מיידי",
   "instantRentSubtitle": "‎+$420 מהסטודיו",
   "limit": "מכסה",
@@ -188,28 +320,36 @@
   "demoRewardsNotice": "הפרסים מדומים בגרסת ההדגמה. בגרסת ייצור יש להעניק פרסים רק לאחר אישור Google Mobile Ads על קבלת הפרס.",
   "realRewardsNotice": "כסף ויהלומים מוענקים רק לאחר שהמודעה מאשרת את קבלת הפרס. מימוש פרסים בצד הלקוח אינו מוגן מפני רמאות.",
   "adLoadError": "לא ניתן לטעון או להציג את המודעה: {error}",
-  "@adLoadError": {"placeholders": {"error": {}}},
+  "@adLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "watchFullAd": "צפו במודעה עד הסוף כדי לקבל את הפרס.",
   "rewardClaimed": "הפרס התקבל.",
   "dailyRewardLimitReached": "הגעתם למכסת הפרסים היומית.",
   "empireBuilder": "בוני האימפריה",
   "demoProfile": "פרופיל הדגמה · מקומי בלבד",
   "signInToSync": "התחברו כדי לסנכרן את פרופיל Google",
-  "netWorth": "שווי נקי",
+  "netWorth": "???? ???",
   "properties": "נכסים",
   "items": "פריטים",
   "connectGoogle": "חיבור חשבון Google",
   "couldNotLoadAccount": "לא ניתן לטעון את החשבון: {error}",
-  "@couldNotLoadAccount": {"placeholders": {"error": {}}},
+  "@couldNotLoadAccount": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "syncWithFirebase": "סנכרון פרופיל עם Firebase",
   "signIn": "התחברות",
   "signOut": "התנתקות",
   "preferences": "העדפות",
   "soundEffects": "אפקטים קוליים",
   "hapticFeedback": "משוב רטט",
-  "language": "שפה",
+  "language": "???",
   "english": "English",
-  "hebrew": "עברית",
+  "hebrew": "?????",
   "howToPlay": "איך משחקים",
   "learnToTrade": "למדו לרהט ולסחור",
   "buildEmpire": "בנו את האימפריה שלכם",
@@ -217,7 +357,11 @@
   "letsGo": "בואו נתחיל",
   "demoBuild": "אימפריית המכירות הפומביות · גרסת הדגמה",
   "accountActionFailed": "פעולת החשבון נכשלה: {error}",
-  "@accountActionFailed": {"placeholders": {"error": {}}},
+  "@accountActionFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "mapSharedWorld": "עולם משותף",
   "mapPropertyInterior": "פנים הנכס",
   "mapHome": "בית",
@@ -229,9 +373,21 @@
   "mapCityCenter": "מרכז העיר",
   "mapOwnerYou": "השחקן הנוכחי",
   "mapDistrictCount": "{count, plural, =1{רובע אחד} =2{2 רבעים} other{{count} רבעים}}",
-  "@mapDistrictCount": {"placeholders": {"count": {"type": "num"}}},
+  "@mapDistrictCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "mapPropertiesCount": "{count, plural, =1{נכס אחד} =2{2 נכסים} other{{count} נכסים}}",
-  "@mapPropertiesCount": {"placeholders": {"count": {"type": "num"}}},
+  "@mapPropertiesCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
   "mapStarterHome": "בית התחלתי",
   "mapCornerMarket": "השוק בפינה",
   "mapGalleryHouse": "בית הגלריה",
@@ -239,9 +395,18 @@
   "mapCivicOffices": "משרדי העירייה",
   "mapSculptureGarden": "גן הפסלים",
   "mapOwnedBy": "בבעלות {owner}",
-  "@mapOwnedBy": {"placeholders": {"owner": {}}},
+  "@mapOwnedBy": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
   "mapSiteSemantics": "{title}, בבעלות {owner}",
-  "@mapSiteSemantics": {"placeholders": {"title": {}, "owner": {}}},
+  "@mapSiteSemantics": {
+    "placeholders": {
+      "title": {},
+      "owner": {}
+    }
+  },
   "mapExploreLandmark": "סיור באתר",
   "mapEnterProperty": "כניסה לנכס",
   "mapAccessRequested": "הגישה התבקשה",
@@ -251,9 +416,18 @@
   "mapOwnerControlsAccess": "הבעלים שולט בגישה לפנים הנכס",
   "mapPublicLandmark": "אתר ציבורי · פתוח למבקרים",
   "mapSharedPlace": "מקום ציבורי משותף · באחריות {owner}.",
-  "@mapSharedPlace": {"placeholders": {"owner": {}}},
+  "@mapSharedPlace": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
   "roomTitle": "{title} · {roomType}",
-  "@roomTitle": {"placeholders": {"title": {}, "roomType": {}}},
+  "@roomTitle": {
+    "placeholders": {
+      "title": {},
+      "roomType": {}
+    }
+  },
   "roomHome": "הבית שלך",
   "roomGuest": "תצוגת אורח",
   "roomHomeDescription": "הפריטים שהצבת, במבט מלמעלה. לחצו על פריט כדי לבדוק אותו.",
@@ -263,7 +437,9 @@
     "placeholders": {
       "rarity": {},
       "category": {},
-      "value": {"type": "int"}
+      "value": {
+        "type": "int"
+      }
     }
   },
   "roomOwnerAsset": "פריט שהוצג על ידי הבעלים",
@@ -275,5 +451,143 @@
   "close": "סגירה",
   "mapChooseRegionHint": "בחרו רובע כדי לגלות את העיר והנכסים שבבעלות השחקנים.",
   "mapChooseCityHint": "בחרו עיר כדי לסייר ברחובות ובאתרים שלה.",
-  "mapSelectBuildingHint": "בחרו בניין כדי לראות מי הבעלים ואפשרויות גישה."
+  "mapSelectBuildingHint": "בחרו בניין כדי לראות מי הבעלים ואפשרויות גישה.",
+  "firebaseStartErrorTitle": "?? ???? ?????? ?? Firebase",
+  "firebaseStartErrorMessage": "???? ?? ?????? ?????? Firebase ??? ????? ?????????, ??? ?????? ????. ?????: {error}",
+  "retrySetup": "?????? ????",
+  "firebaseConnecting": "??????? ?? Firebase",
+  "firebasePreparing": "?????? ?? ?????? ???????? ???????? ??????",
+  "checkingAccount": "?????? ?? ??????",
+  "connectingSecurely": "??????? ????? ???????",
+  "authNeedsAttention": "????? ????? ?? ????????",
+  "retry": "?????? ????",
+  "googleSignInError": "{error} ???? ???????? Google ?????? ?-Firebase Authentication.",
+  "signOutError": "?? ???? ??????: {error}",
+  "firebaseSetupRequired": "????? ????? Firebase",
+  "firebaseSetupMessage": "????????? ????? ?-Firebase ???? ??????? ?????? ???? ????. {nativeMessage} ???? ??? ?????? ??????? {command}. ?? ????? ????? ????? ?? ???? ??????.",
+  "welcomeTitle": "?????? ????? ?-Grand Auctioneer",
+  "signInWorkspace": "?????? ??????? Google ??? ????? ?? ????? ????? ????.",
+  "signingIn": "????????",
+  "continueWithGoogle": "???? ??????? Google",
+  "@firebaseStartErrorMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@googleSignInError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@signOutError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@firebaseSetupMessage": {
+    "placeholders": {
+      "nativeMessage": {},
+      "command": {}
+    }
+  },
+  "workspaceTitle": "????? ?????",
+  "settings": "??????",
+  "propertyMap": "??? ?????",
+  "propertyMapSubtitle": "?????? ??????? ????????? ???????? ????.",
+  "missingCoordinates": "??? ????? ?? ??????????? ?????? ????? ???? (???? ?????: {count}).",
+  "noOwnedProperties": "????? ?? ????? ????? ????????.",
+  "activeAuctions": "?????? ??????? ??????",
+  "auctionsSubtitle": "?????? ???? ???? ???????. ???? ????? ???? ?????.",
+  "noAuctions": "??? ?????? ?? ?????? ??????.",
+  "auctionLabel": "????? {id}",
+  "itemReference": "???? ????: {id}",
+  "auctionTypeState": "???: {type} ? ???: {state}",
+  "auctionPrices": "????? {starting} ? ????? {current}",
+  "auctionEnds": "??????? {date}",
+  "inventory": "????",
+  "inventorySubtitle": "????? ???????? ?????? ????.",
+  "noAssets": "????? ?? ????? ????? ????????.",
+  "estimated": "???? ?????: {value}",
+  "assetId": "??? {id}",
+  "bankRewards": "??? / ?????",
+  "bankSubtitle": "???? ?????? ?????? ????? ??? ?? ??????.",
+  "reservedCash": "????? ????",
+  "rewards": "?????",
+  "rewardsReadOnly": "????? ????? ???? ????, ???????? ?????? ????.",
+  "claimRewards": "????? ?????",
+  "economyReadOnly": "??????? ?????? ???????: ???? ????? ?????? ????? ??? ????? ??? ?????? ?????.",
+  "profile": "??????",
+  "profileSubtitle": "???? ????? ??????? ????? ?? ?????? ??????.",
+  "accountId": "????? {id}",
+  "memberSince": "??? ???",
+  "settingsSubtitle": "???? ?? ??? ????? ?????.",
+  "liveLoadError": "?? ???? ????? ?????? ????: {error}",
+  "loadingRecords": "?????? ?????? ?????",
+  "zoomIn": "???????",
+  "zoomOut": "???????",
+  "resetMap": "????? / ????? ???",
+  "noLocatedProperties": "??? ????? ?? ????? ????? ????.",
+  "gridCoordinates": "??? {x}, {y}",
+  "realEstate": "Real Estate",
+  "auctionItemSemantics": "???? ???? ??????",
+  "@missingCoordinates": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "@auctionLabel": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@itemReference": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@auctionTypeState": {
+    "placeholders": {
+      "type": {},
+      "state": {}
+    }
+  },
+  "@auctionPrices": {
+    "placeholders": {
+      "starting": {},
+      "current": {}
+    }
+  },
+  "@auctionEnds": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "@estimated": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "@assetId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@accountId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@liveLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@gridCoordinates": {
+    "placeholders": {
+      "x": {},
+      "y": {}
+    }
+  }
 }

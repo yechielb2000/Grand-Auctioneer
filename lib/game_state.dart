@@ -195,9 +195,9 @@ class GameState extends ChangeNotifier {
   int get netWorth =>
       cash +
       diamonds * 100 +
-      inventory.fold(0, (total, item) => total + item.value) +
-      properties.fold(0, (total, property) => total + property.value) +
-      auctions.fold(
+      inventory.fold<int>(0, (total, item) => total + item.value) +
+       properties.fold<int>(0, (total, property) => total + property.value) +
+      auctions.fold<int>(
         0,
         (total, auction) =>
             total +

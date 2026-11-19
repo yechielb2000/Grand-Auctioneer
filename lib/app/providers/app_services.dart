@@ -44,6 +44,7 @@ class AppServices {
     firestore.settings = const Settings(persistenceEnabled: true);
 
     final users = FirestoreUserRepository(firestore);
+    final starterContent = FirestoreStarterContentRepository(firestore);
     final analytics = FirebaseAnalytics.instance;
     final remoteConfig = FirebaseRemoteConfigService(
       remoteConfig: FirebaseRemoteConfig.instance,
@@ -58,7 +59,11 @@ class AppServices {
     await notifications.initialize();
 
     return AppServices._(
-      auth: FirebaseGoogleAuthService(auth: FirebaseAuth.instance, users: users),
+      auth: FirebaseGoogleAuthService(
+        auth: FirebaseAuth.instance,
+        users: users,
+        starterContent: starterContent,
+      ),
       analytics: analytics,
       users: users,
       properties: FirestorePropertyRepository(firestore),

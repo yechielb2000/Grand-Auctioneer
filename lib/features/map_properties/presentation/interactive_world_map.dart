@@ -311,7 +311,7 @@ class _InteractiveWorldMapState extends State<InteractiveWorldMap> {
         children: [
           for (var index = 0; index < crumbs.length; index++) ...[
             if (index > 0)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 5),
                 child: Icon(
                   Directionality.of(context) == TextDirection.rtl
