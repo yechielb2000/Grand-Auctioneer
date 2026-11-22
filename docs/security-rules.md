@@ -1,13 +1,21 @@
-# Firebase security rules baseline
+# Firebase read-only rules baseline
 
-`firestore.rules` and `storage.rules` are a source-controlled, deny-by-default baseline for the current Firebase adapter paths. User documents can be read by their owner and created only in the fixed starter shape and balances in `FirebaseGoogleAuthService`; later updates can change only a bounded `fcmToken`. Property and asset reads require an owner-scoped query. Auction reads require an active-status query. Avatar objects are owner-scoped and restricted to supported image types up to 2 MiB.
+The current milestone contract is documented in [ADR 001](adr/001-demo-scope-and-firebase-trust-boundary.md). Firestore rules allow signed-in reads only from the public auction preview projection and owner-only reads from a minimal profile summary. Every client write is denied, including profile creation, starter grants, inventory changes, bids, balances, rewards, and auction settlement. Other collections and paths are denied by default. Storage access is also denied for this milestone.
 
-The only property and asset write exception is create-only provisioning of one fixed starter kit: a `Small Studio Apartment` and three unplaced assets at deterministic IDs scoped to the authenticated uid. The apartment is an `apartment` with capacity for two furniture items and zero vehicle slots; its placed-item list starts empty. The assets are `Vintage Velvet Sofa` (`furniture`, `rare`, 1850), `Classic City Scooter` (`vehicle`, `common`, 2400), and `Retro Arcade Cabinet` (`collectible`, `epic`, 3200). Their `currentLocationPropertyId` values start null, and their stable illustration identifiers use the `builtin:game-item/...` namespace. The rule checks pin every record's exact serialized fields, names, categories, rarities, values, identifiers, capacities, IDs, empty slots, and null locations; updates/deletes remain denied. This is a fixed starter kit: no randomized draw or trading is implemented yet. These records contain no account economy fields and cannot grant currency; account balances remain fixed at initial creation and client balance changes, auction writes/bids, and reward ledgers remain denied. Firestore rules authorize individual requests; they are not query filters, so a query must prove it can return only allowed documents. This baseline does not make client authorization a trusted settlement system. Economy changes require trusted server execution.
+These rules are intentionally incompatible with the existing Firebase adapters. Those adapters read and write `/users`, `/properties`, `/assets`, and `/auctions`, and some expose balances or attempt client-side mutations. Do not enable `FIREBASE_ENABLED=true` against a project using this rules baseline until a dedicated read-only adapter uses only `/publicAuctions` and `/users/{uid}/profile/summary`. The demo game state remains local.
 
-## Local review and deployment
+The `publicAuctions` path must contain only the public projection fields defined in ADR 001. Firestore rules cannot remove private fields from a document, so never place private or economic fields in a document readable by all signed-in users. Populate documents only through trusted/admin tooling. User profile summaries are also provisioned outside the client.
 
-No Firebase project is selected or deployed by this change. Before use, inspect the rules against the intended data contract and exercise them with the [Firebase Local Emulator Suite security rules testing guidance](https://firebase.google.com/docs/rules/unit-tests) and the [Firestore emulator documentation](https://firebase.google.com/docs/emulator-suite/connect_firestore). This checkout has no `firebase.json` emulator configuration and no Firebase CLI available, so these rules are **unvalidated**; no emulator tests were run.
+## Validation and deployment
 
-When the project owner is ready to deploy, add the rules file paths to that project's Firebase configuration, review them in a development project, then deploy only to the explicitly selected project using the [Firebase CLI rules deployment guide](https://firebase.google.com/docs/rules/manage-deploy). Do not deploy this baseline without confirming its compatibility with the project's schema and intended access patterns.
+No Firebase project is selected or deployed. This checkout has no `firebase.json` emulator configuration. Before any connection or deployment, add Emulator Suite configuration and tests proving:
 
-References: [Firestore rules and queries](https://firebase.google.com/docs/firestore/security/rules-query), [Cloud Storage security rules](https://firebase.google.com/docs/storage/security).
+- unauthenticated reads fail;
+- signed-in users can query public auction previews;
+- signed-in users can read their own summary but not another user's summary;
+- all client writes fail, including writes under legacy `/auctions`, `/users`, `/properties`, and `/assets` paths;
+- all Storage reads and writes fail.
+
+Rules have not been emulator-validated, and deployment is not authorized by this document. Select a non-production project explicitly, run the rules tests against the Firebase Emulator Suite, review the contract and expected queries, then obtain project-owner approval before deployment. Do not deploy this baseline to production based only on its presence in source control.
+
+References: [Firestore rules and queries](https://firebase.google.com/docs/firestore/security/rules-query), [Firestore rules unit testing](https://firebase.google.com/docs/rules/unit-tests), [Storage security rules](https://firebase.google.com/docs/storage/security).
